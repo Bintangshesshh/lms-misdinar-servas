@@ -13,9 +13,10 @@ return new class extends Migration
     {
         Schema::create('cheat_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('exam-session-id')->constrained()->onDelete('cascade');
-            $table->string('violation_type');
-            $table->timestamp('occured_at');
+            $table->foreignId('exam_session_id')->constrained()->onDelete('cascade');
+            $table->string('violation_type'); // 'tab_switch', 'split_screen', 'dnd_off'
+            $table->integer('duration_seconds')->default(0); // Berapa lama pelanggaran terjadi
+            $table->timestamp('occurred_at');
         });
     }
 

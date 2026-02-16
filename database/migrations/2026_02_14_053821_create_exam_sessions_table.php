@@ -17,9 +17,12 @@ return new class extends Migration
             $table->foreignId('exam_id')->constrained();
             $table->dateTime('start_time');
             $table->dateTime('end_time')->nullable();
-            $table->integer('violation_count')->default(0);
-            $table->enum('status', ['ongoing', 'completed', 'blocked',])->default('ongoing');
-            $table->string('user_agent')->nullable();
+            
+            // Core Anti-Cheat
+            $table->float('score_academic')->default(0); // Nilai Jawaban
+            $table->float('score_integrity')->default(100); // Nilai Kejujuran (Start 100%)
+            $table->enum('status', ['ongoing', 'completed', 'blocked'])->default('ongoing');
+            
             $table->timestamps();
         });
     }

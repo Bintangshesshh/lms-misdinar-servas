@@ -508,7 +508,7 @@
     var warningTimeout = null;
     var graceToastTimeout = null;
     var graceTimer = null;
-    var GRACE_PERIOD_MS = 1500; // 1.5 detik grace period untuk notifikasi
+    var GRACE_PERIOD_MS = 3000; // 3 detik grace period untuk notifikasi
     var VIOLATION_COOLDOWN_MS = 5000; // 5 detik cooldown antar pelanggaran sejenis
     var lastViolationTime = {}; // track per-type cooldown
     var screenshotWarningTimeout = null;

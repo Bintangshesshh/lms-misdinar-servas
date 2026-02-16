@@ -16,7 +16,7 @@
                 <x-input-label for="full_name" value="Nama Lengkap" />
                 <x-text-input id="full_name" class="block mt-1 w-full" type="text" name="full_name"
                     :value="old('full_name')" required autofocus
-                    placeholder="Contoh: Muhammad Budi Santoso" />
+                    placeholder="Contoh:Budi Santoso" />
                 <x-input-error :messages="$errors->get('full_name')" class="mt-1" />
             </div>
 
@@ -26,7 +26,7 @@
                 <select id="kelas" name="kelas" required
                     class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                     <option value="" disabled {{ old('kelas') ? '' : 'selected' }}>-- Pilih Kelas --</option>
-                    @foreach(['7A','7B','7C','8A','8B','8C','9A','9B','9C','10','11','12','Lainnya'] as $k)
+                    @foreach(['1 SD','2 SD','3 SD','4 SD','5 SD','6 SD','1 SMP','2 SMP','3 SMP','1 SMA/K','2 SMA/K','3 SMA/K','Lainnya'] as $k)
                         <option value="{{ $k }}" {{ old('kelas') === $k ? 'selected' : '' }}>{{ $k }}</option>
                     @endforeach
                 </select>
@@ -48,7 +48,7 @@
                     <x-input-label for="lingkungan" value="Lingkungan" />
                     <x-text-input id="lingkungan" class="block mt-1 w-full" type="text" name="lingkungan"
                         :value="old('lingkungan')" required
-                        placeholder="Contoh: Lingk. 3" />
+                        placeholder="Contoh: Lingkungan Gg.Sadar" />
                     <x-input-error :messages="$errors->get('lingkungan')" class="mt-1" />
                 </div>
             </div>

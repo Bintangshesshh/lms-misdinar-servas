@@ -3,6 +3,13 @@
 
 @section('content')
 <div class="max-w-2xl mx-auto">
+    <div id="lobby-data"
+         data-exam-id="{{ $exam->id }}"
+         data-session-id="{{ $session->id }}"
+         data-poll-url="{{ route('exam.pollStatus', $exam) }}"
+         data-exam-url="{{ route('student.exam.take', $exam) }}">
+    </div>
+
     {{-- Exam Info Card --}}
     <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
         {{-- Header --}}
@@ -32,6 +39,36 @@
                     <span class="text-gray-700"><strong>Skor integritas dimulai dari 100.</strong> Pelanggaran mengurangi skor secara otomatis.</span>
                 </li>
             </ul>
+        </div>
+
+        {{-- DND Warning --}}
+        <div class="px-8 py-5 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <span class="text-2xl">🔕</span>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-amber-900">⚠️ WAJIB: Aktifkan Mode Jangan Ganggu (DND)</h3>
+                    <p class="mt-1 text-sm text-amber-800">Sebelum ujian dimulai, <strong class="underline">WAJIB nyalakan mode Do Not Disturb / Jangan Ganggu</strong> di perangkat Anda.</p>
+                    <div class="mt-3 space-y-1.5">
+                        <p class="text-xs text-amber-700 flex items-center gap-2">
+                            <span class="font-bold">📱 Android:</span> Geser ke bawah → aktifkan "Jangan Ganggu"
+                        </p>
+                        <p class="text-xs text-amber-700 flex items-center gap-2">
+                            <span class="font-bold">🍎 iPhone:</span> Settings → Focus → Do Not Disturb → ON
+                        </p>
+                        <p class="text-xs text-amber-700 flex items-center gap-2">
+                            <span class="font-bold">💻 Windows:</span> Klik ikon notifikasi → aktifkan "Focus Assist"
+                        </p>
+                        <p class="text-xs text-amber-700 flex items-center gap-2">
+                            <span class="font-bold">🖥️ Mac:</span> Control Center → Focus → Do Not Disturb
+                        </p>
+                    </div>
+                    <div class="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="text-xs font-bold text-red-700">🚨 Jika notifikasi masuk dan mengganggu ujian, hal tersebut dapat tercatat sebagai aktivitas mencurigakan. Nyalakan DND untuk melindungi skor integritas Anda!</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {{-- Waiting Status --}}
@@ -65,10 +102,11 @@
 </div>
 
 <script>
-    const examId = @json($exam->id);
-    const sessionId = @json($session->id);
-    const pollUrl = "{{ route('exam.pollStatus', $exam) }}";
-    const examUrl = "{{ route('student.exam.take', $exam) }}";
+    const dataEl = document.getElementById('lobby-data');
+    const examId = Number(dataEl.dataset.examId);
+    const sessionId = Number(dataEl.dataset.sessionId);
+    const pollUrl = dataEl.dataset.pollUrl;
+    const examUrl = dataEl.dataset.examUrl;
 
     let polling = null;
 

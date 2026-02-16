@@ -26,6 +26,11 @@ class Exam extends Model
         return $this->hasMany(ExamSession::class);
     }
 
+    public function questions()
+    {
+        return $this->hasMany(Question::class)->orderBy('order');
+    }
+
     // Get students currently in the lobby
     public function lobbyStudents()
     {

@@ -10,6 +10,10 @@ use Laravel\Sanctum\HasApiTokens;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $full_name
+ * @property string|null $kelas
+ * @property int|null $umur
+ * @property string|null $lingkungan
  * @property string $email
  * @property string $role
  * @method bool isAdmin()
@@ -26,6 +30,10 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'full_name',
+        'kelas',
+        'umur',
+        'lingkungan',
         'email',
         'password',
         'role',

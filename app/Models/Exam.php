@@ -19,6 +19,8 @@ class Exam extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'started_at' => 'datetime',
+        'show_answers' => 'boolean',
+        'show_score_to_student' => 'boolean',
     ];
 
     public function sessions()

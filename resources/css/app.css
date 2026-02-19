@@ -1,3 +1,155 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Misdinar Admin — Custom Theme */
+
+/* Login/Auth page background */
+.auth-layout {
+    background: linear-gradient(135deg, #071f5e 0%, #0B2C8A 50%, #1a3fa0 100%);
+    min-height: 100vh;
+}
+
+.auth-card {
+    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 1rem;
+    box-shadow: 0 20px 60px -10px rgba(7, 31, 94, 0.3);
+}
+
+/* Logo styling */
+.brand-logo {
+    border-radius: 9999px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Card hover effects */
+.card-hover {
+    transition: all 200ms ease;
+    border-radius: 0.875rem;
+}
+
+.card-hover:hover {
+    box-shadow: 0 8px 24px -8px rgba(11, 44, 138, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Stats cards */
+.stat-card {
+    border-radius: 0.875rem;
+    transition: box-shadow 200ms ease, transform 200ms ease;
+    background: white;
+    border: 1px solid rgba(11, 44, 138, 0.08);
+}
+
+.stat-card:hover {
+    box-shadow: 0 8px 24px -8px rgba(11, 44, 138, 0.15);
+    transform: translateY(-1px);
+}
+
+/* Table striped rows */
+.table-striped tbody tr:nth-child(even) {
+    background-color: rgba(11, 44, 138, 0.02);
+}
+
+/* Section styling */
+.section-card {
+    border-radius: 0.875rem;
+    box-shadow: 0 4px 16px -4px rgba(11, 44, 138, 0.06);
+}
+
+/* Button smooth transitions */
+.btn-transition,
+.nav-item,
+.table-row {
+    transition: all 150ms ease;
+}
+
+/* Primary button override */
+.btn-primary {
+    background: linear-gradient(135deg, #0B2C8A 0%, #1a3fa0 100%);
+    border: none;
+    transition: all 200ms ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #071f5e 0%, #0B2C8A 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(11, 44, 138, 0.3);
+}
+
+/* Sidebar styling */
+.sidebar {
+    border-right: 1px solid rgba(11, 44, 138, 0.08);
+    background: white;
+}
+
+.sidebar-nav-item {
+    transition: all 150ms ease;
+    border-radius: 0.5rem;
+}
+
+.sidebar-nav-item:hover {
+    background-color: rgba(11, 44, 138, 0.05);
+}
+
+.sidebar-nav-item.active {
+    background: linear-gradient(135deg, #0B2C8A 0%, #1a3fa0 100%);
+    color: white;
+}
+
+/* Badge styling */
+.badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+}
+
+/* Section headers */
+.section-header {
+    color: #0B2C8A;
+    font-weight: 600;
+}
+
+/* Footer styling */
+footer {
+    background: rgba(11, 44, 138, 0.02);
+}
+
+/* Form inputs focus */
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: #0B2C8A;
+    ring-color: rgba(11, 44, 138, 0.2);
+}
+
+/* Progress bar */
+.progress-bar {
+    background: linear-gradient(90deg, #0B2C8A 0%, #1a3fa0 100%);
+}
+
+/* Alert variants */
+.alert-info {
+    background-color: rgba(11, 44, 138, 0.1);
+    border-color: #0B2C8A;
+    color: #071f5e;
+}
+
+/* Smooth animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease;
+}
+
+/* Dashboard grid */
+.dashboard-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}

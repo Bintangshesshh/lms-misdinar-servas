@@ -45,8 +45,8 @@
 
     {{-- Force-stop banner (hidden) --}}
     <div id="force-stop-banner" class="hidden mb-4 bg-red-600 text-white rounded-xl p-4 text-center">
-        <p class="font-bold text-lg">⛔ Ujian telah dihentikan oleh Admin</p>
-        <p class="text-sm mt-1 text-red-100">Jawaban Anda sudah disimpan. Mengalihkan ke halaman hasil...</p>
+        <p class="font-bold text-lg">UJIAN DIHENTIKAN</p>
+        <p class="text-sm mt-1 text-red-100">Ujian telah dihentikan oleh Admin. Jawaban Anda sudah disimpan. Mengalihkan ke halaman hasil...</p>
     </div>
 
     {{-- TERMINATED Overlay (fullscreen block) --}}
@@ -61,10 +61,10 @@
             <p class="text-red-400 text-lg font-semibold mb-2">Skor integritas Anda mencapai 0%</p>
             <p class="text-gray-400 mb-6">Anda tidak dapat melanjutkan ujian ini karena terlalu banyak pelanggaran. Hubungi admin/guru jika ingin diizinkan kembali.</p>
             <div id="terminated-waiting" class="bg-red-900 bg-opacity-50 rounded-xl p-4 border border-red-700 mb-4">
-                <p class="text-red-300 text-sm">⏳ Menunggu keputusan Admin...</p>
+                <p class="text-red-300 text-sm">Menunggu keputusan Admin...</p>
             </div>
             <div id="terminated-reinstated" class="hidden bg-green-900 bg-opacity-50 rounded-xl p-4 border border-green-700 mb-4">
-                <p class="text-green-300 text-sm font-semibold">✅ Admin telah mengizinkan Anda kembali!</p>
+                <p class="text-green-300 text-sm font-semibold">Admin telah mengizinkan Anda kembali!</p>
                 <p class="text-green-400 text-xs mt-1">Anda bisa kembali ke dashboard dan masuk ujian lagi.</p>
             </div>
             <a href="{{ route('student.dashboard') }}"
@@ -91,7 +91,9 @@
     {{-- Warning Banner (hidden by default) --}}
     <div id="cheat-warning" class="hidden mb-4 bg-red-50 border-2 border-red-300 rounded-xl p-4 animate-pulse">
         <div class="flex items-center gap-3">
-            <span class="text-2xl">🚨</span>
+            <svg class="w-8 h-8 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-1.964-1.333-2.732 0L3.082 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
             <div>
                 <p class="font-bold text-red-800">PELANGGARAN TERDETEKSI!</p>
                 <p class="text-sm text-red-600" id="warning-text">Anda terdeteksi meninggalkan halaman ujian.</p>
@@ -102,7 +104,10 @@
     {{-- Screenshot Warning (persistent) --}}
     <div id="screenshot-warning" class="hidden mb-4 bg-orange-50 border-2 border-orange-400 rounded-xl p-4">
         <div class="flex items-center gap-3">
-            <span class="text-2xl">📸</span>
+            <svg class="w-8 h-8 text-orange-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
             <div>
                 <p class="font-bold text-orange-800">SCREENSHOT TERDETEKSI!</p>
                 <p class="text-sm text-orange-600">Upaya screenshot terdeteksi dan dicatat. Skor integritas dikurangi.</p>
@@ -235,6 +240,30 @@
         @endforeach
     </div>
 
+    {{-- Submitting Overlay (Fullscreen Lock) --}}
+    <div id="submitting-overlay" class="hidden fixed inset-0 bg-gray-900 bg-opacity-95 z-[60] flex items-center justify-center">
+        <div class="text-center max-w-md mx-auto px-6">
+            <div class="w-24 h-24 mx-auto mb-6 bg-indigo-600 rounded-full flex items-center justify-center animate-pulse">
+                <svg class="animate-spin w-14 h-14 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-black text-white mb-3">MENGUMPULKAN UJIAN...</h2>
+            <p class="text-gray-400 text-lg mb-2">Mohon tunggu, jawaban Anda sedang diproses</p>
+            <p class="text-gray-500 text-sm">Jangan tutup atau refresh halaman ini!</p>
+            <div class="mt-6 bg-gray-800 bg-opacity-50 rounded-xl p-4 border border-gray-700">
+                <div class="flex items-center justify-center gap-2 text-gray-400 text-sm">
+                    <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span>Menyimpan hasil ujian...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Submit Confirmation Modal --}}
     <div id="submit-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 transform transition-all">
@@ -322,6 +351,89 @@
 
     document.getElementById('btn-close-modal').addEventListener('click', closeModal);
 
+    // ============================================
+    // SUBMIT FORM WITH IMMEDIATE UI LOCK
+    // ============================================
+    submitForm.addEventListener('submit', function(e) {
+        // Prevent form submission temporarily
+        e.preventDefault();
+        
+        console.log('[Submit] Form submit triggered - LOCKING UI immediately!');
+        
+        // IMMEDIATE ACTION: Lock everything BEFORE any network request
+        lockUIForSubmission();
+        
+        // Now submit the form after UI is locked
+        setTimeout(function() {
+            console.log('[Submit] UI locked, now submitting form...');
+            // Remove event listener to prevent loop
+            submitForm.removeEventListener('submit', arguments.callee);
+            // Actually submit the form
+            submitForm.submit();
+        }, 100); // Small delay to ensure UI updates are rendered
+    });
+
+    function lockUIForSubmission() {
+        console.log('[Submit] Locking UI: disabling all interactions');
+        
+        // 1. Set examEnded flag (prevents all other actions)
+        examEnded = true;
+        
+        // 2. Show fullscreen submitting overlay
+        var overlay = document.getElementById('submitting-overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            console.log('[Submit] Submitting overlay shown');
+        }
+        
+        // 3. Disable ALL answer radio buttons (prevent clicking)
+        document.querySelectorAll('.answer-radio-input').forEach(function(input) {
+            input.disabled = true;
+        });
+        console.log('[Submit] All radio inputs disabled');
+        
+        // 4. Disable ALL answer option labels (visual feedback)
+        document.querySelectorAll('.answer-option').forEach(function(label) {
+            label.style.pointerEvents = 'none';
+            label.style.opacity = '0.5';
+        });
+        console.log('[Submit] All answer labels disabled');
+        
+        // 5. Disable ALL navigation buttons
+        document.querySelectorAll('.nav-prev-btn, .nav-next-btn, .nav-dot-btn').forEach(function(btn) {
+            btn.disabled = true;
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.5';
+        });
+        console.log('[Submit] All navigation buttons disabled');
+        
+        // 6. Disable submit buttons
+        var submitBtns = document.querySelectorAll('#btn-submit-exam, #btn-submit-sticky');
+        submitBtns.forEach(function(btn) {
+            btn.disabled = true;
+            btn.style.pointerEvents = 'none';
+        });
+        console.log('[Submit] Submit buttons disabled');
+        
+        // 7. Close modal
+        closeModal();
+        
+        // 8. Prevent page unload (back button, refresh)
+        window.onbeforeunload = function() {
+            return 'Ujian sedang dikumpulkan! Jangan tutup halaman ini.';
+        };
+        console.log('[Submit] Page unload warning set');
+        
+        // 9. Disable questions container (extra security)
+        var questionsContainer = document.getElementById('questions-container');
+        if (questionsContainer) {
+            questionsContainer.style.pointerEvents = 'none';
+            questionsContainer.style.opacity = '0.3';
+        }
+        
+        console.log('[Submit] ✅ UI FULLY LOCKED - Student cannot interact anymore');
+    }
+
     function goToQuestion(index) {
         document.querySelectorAll('.question-slide').forEach(function(slide) {
             slide.classList.add('hidden');
@@ -345,6 +457,12 @@
     }
 
     function selectAnswer(questionId, option, questionIndex) {
+        // Prevent interaction if exam ended or submitting
+        if (examEnded) {
+            console.log('[Answer] Blocked: Exam ended or submitting');
+            return;
+        }
+        
         var container = document.getElementById('options-' + questionId);
         container.querySelectorAll('.answer-option').forEach(function(label) {
             var opt = label.dataset.option;
@@ -370,7 +488,12 @@
         }
         updateAnsweredCount();
 
-        // Auto-save via AJAX
+        // Auto-save via AJAX (skip if exam ended/submitting)
+        if (examEnded) {
+            console.log('[Auto-Save] Blocked: Exam ended or submitting');
+            return;
+        }
+        
         fetch('/student/exam/' + EXAM_ID + '/save-answer', {
             method: 'POST',
             headers: {
@@ -410,8 +533,14 @@
     // Auto-submit (form POST)
     function autoSubmitExam() {
         if (examEnded) return;
+        console.log('[Auto-Submit] Time\'s up - auto-submitting exam');
         examEnded = true;
-        submitForm.submit();
+        lockUIForSubmission();
+        
+        // Submit after UI lock
+        setTimeout(function() {
+            submitForm.submit();
+        }, 100);
     }
 
     // Initialize first question nav highlight
@@ -519,9 +648,14 @@
         // Cooldown: jangan spam pelanggaran sejenis dalam 5 detik
         var now = Date.now();
         if (lastViolationTime[type] && (now - lastViolationTime[type]) < VIOLATION_COOLDOWN_MS) {
+            console.log('[Anti-Cheat] Cooldown active for:', type);
             return;
         }
         lastViolationTime[type] = now;
+
+        console.log('[Anti-Cheat] Reporting violation:', type, 'Duration:', duration, 'Session:', SESSION_ID);
+        console.log('[Anti-Cheat] CSRF Token:', CSRF_TOKEN ? 'Present' : 'MISSING!');
+        console.log('[Anti-Cheat] URL:', LOG_URL);
 
         fetch(LOG_URL, {
             method: 'POST',
@@ -537,9 +671,17 @@
                 duration: Math.round(duration)
             })
         }).then(function(res) {
-            if (res.ok) return res.json();
+            console.log('[Anti-Cheat] Response status:', res.status, res.statusText);
+            if (!res.ok) {
+                return res.text().then(function(text) {
+                    console.error('[Anti-Cheat] Error response:', text);
+                    throw new Error('HTTP ' + res.status + ': ' + text);
+                });
+            }
+            return res.json();
         }).then(function(data) {
             if (data) {
+                console.log('[Anti-Cheat] Success:', data);
                 updateIntegrityUI(data.current_integrity);
                 showWarning(type, data.penalty_applied || 0);
 
@@ -550,7 +692,14 @@
                 }
             }
         }).catch(function(e) {
-            console.error('Failed to report violation:', e);
+            console.error('[Anti-Cheat] Failed to report violation:', e);
+            console.error('[Anti-Cheat] Error details:', {
+                type: type,
+                duration: duration,
+                session: SESSION_ID,
+                url: LOG_URL,
+                csrf: CSRF_TOKEN ? 'present' : 'missing'
+            });
         });
     }
 
@@ -582,7 +731,7 @@
             'tab_switch': 'Anda berpindah tab! Skor dikurangi ' + penalty + ' poin.',
             'split_screen': 'Split screen terdeteksi! Skor dikurangi ' + penalty + ' poin.',
             'window_blur': 'Anda keluar dari halaman ujian! Skor dikurangi ' + penalty + ' poin.',
-            'screenshot': '📸 Screenshot terdeteksi! Skor dikurangi ' + penalty + ' poin.',
+            'screenshot': 'Screenshot terdeteksi! Skor dikurangi ' + penalty + ' poin.',
         };
 
         textEl.textContent = messages[type] || ('Pelanggaran terdeteksi! -' + penalty + ' poin.');
@@ -605,17 +754,17 @@
         // Style variants
         if (variant === 'ok') {
             inner.className = 'flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border backdrop-blur-sm bg-green-50 border-green-300';
-            iconEl.textContent = '✅';
+            iconEl.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
             titleEl.className = 'font-bold text-sm text-green-800';
             textEl.className = 'text-xs text-green-600';
         } else if (variant === 'warn') {
             inner.className = 'flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border backdrop-blur-sm bg-yellow-50 border-yellow-300';
-            iconEl.textContent = '⚠️';
+            iconEl.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
             titleEl.className = 'font-bold text-sm text-yellow-800';
             textEl.className = 'text-xs text-yellow-600';
         } else if (variant === 'screenshot') {
             inner.className = 'flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border backdrop-blur-sm bg-orange-50 border-orange-400';
-            iconEl.textContent = '📸';
+            iconEl.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>';
             titleEl.className = 'font-bold text-sm text-orange-800';
             textEl.className = 'text-xs text-orange-600';
         }
@@ -714,7 +863,7 @@
             if (wasBenign) {
                 // Grace period: tidak dihitung pelanggaran
                 showGraceToast('ok',
-                    'Selamat kembali! 👋',
+                    'Selamat kembali!',
                     'Sepertinya cuma notifikasi. Tetap fokus mengerjakan ujian ya!'
                 );
             } else if (!tabSwitchReported) {
@@ -762,7 +911,7 @@
             e.preventDefault();
             reportViolation('screenshot', 0);
             showGraceToast('screenshot',
-                'Screenshot Terdeteksi! 📸',
+                'Screenshot Terdeteksi!',
                 'Upaya screenshot dicatat sebagai pelanggaran.'
             );
         }

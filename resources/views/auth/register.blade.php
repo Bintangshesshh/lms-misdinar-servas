@@ -1,32 +1,32 @@
 <x-guest-layout>
     <div class="mb-6 text-center">
-        <h2 class="text-2xl font-bold text-gray-900">📝 Daftar Akun Siswa</h2>
-        <p class="mt-1 text-sm text-gray-500">Lengkapi data diri untuk mengikuti ujian.</p>
+        <h2 class="text-2xl font-bold text-misdinar-dark">Pendaftaran Peserta</h2>
+        <p class="mt-1 text-sm text-gray-500">Lengkapi data diri Anda untuk mengikuti ujian calon Misdinar.</p>
     </div>
 
     <form method="POST" action="{{ route('register') }}">
         @csrf
 
         {{-- Section: Data Diri --}}
-        <div class="mb-5 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-            <h3 class="text-sm font-semibold text-indigo-700 mb-3">📋 Informasi Data Diri</h3>
+        <div class="mb-5 p-4 bg-misdinar-50 rounded-xl border border-misdinar-200">
+            <h3 class="text-sm font-semibold text-misdinar-700 mb-3">Informasi Pribadi</h3>
 
             <!-- Nama Penuh -->
             <div class="mb-3">
                 <x-input-label for="full_name" value="Nama Lengkap" />
                 <x-text-input id="full_name" class="block mt-1 w-full" type="text" name="full_name"
                     :value="old('full_name')" required autofocus
-                    placeholder="Contoh:Budi Santoso" />
+                    placeholder="Nama lengkap sesuai KTP/Kartu Pelajar" />
                 <x-input-error :messages="$errors->get('full_name')" class="mt-1" />
             </div>
 
             <!-- Kelas -->
             <div class="mb-3">
-                <x-input-label for="kelas" value="Kelas" />
+                <x-input-label for="kelas" value="Tingkat Pendidikan" />
                 <select id="kelas" name="kelas" required
-                    class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                    <option value="" disabled {{ old('kelas') ? '' : 'selected' }}>-- Pilih Kelas --</option>
-                    @foreach(['1 SD','2 SD','3 SD','4 SD','5 SD','6 SD','1 SMP','2 SMP','3 SMP','1 SMA/K','2 SMA/K','3 SMA/K','Lainnya'] as $k)
+                    class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-misdinar-primary focus:ring-misdinar-primary text-sm">
+                    <option value="" disabled {{ old('kelas') ? '' : 'selected' }}>-- Pilih Tingkat --</option>
+                    @foreach(['SD Kelas 1-3','SD Kelas 4-6','SMP Kelas 7','SMP Kelas 8','SMP Kelas 9','SMA Kelas 10','SMA Kelas 11','SMA Kelas 12','Mahasiswa/Umum'] as $k)
                         <option value="{{ $k }}" {{ old('kelas') === $k ? 'selected' : '' }}>{{ $k }}</option>
                     @endforeach
                 </select>
@@ -36,19 +36,19 @@
             <div class="grid grid-cols-2 gap-3">
                 <!-- Umur -->
                 <div>
-                    <x-input-label for="umur" value="Umur" />
+                    <x-input-label for="umur" value="Usia" />
                     <x-text-input id="umur" class="block mt-1 w-full" type="number" name="umur"
-                        :value="old('umur')" required min="5" max="100"
-                        placeholder="Contoh: 14" />
+                        :value="old('umur')" required min="7" max="100"
+                        placeholder="Usia saat ini" />
                     <x-input-error :messages="$errors->get('umur')" class="mt-1" />
                 </div>
 
                 <!-- Lingkungan -->
                 <div>
-                    <x-input-label for="lingkungan" value="Lingkungan" />
+                    <x-input-label for="lingkungan" value="Paroki/Lingkungan" />
                     <x-text-input id="lingkungan" class="block mt-1 w-full" type="text" name="lingkungan"
                         :value="old('lingkungan')" required
-                        placeholder="Contoh: Lingkungan Gg.Sadar" />
+                        placeholder="Contoh: Paroki Santo Yohanes" />
                     <x-input-error :messages="$errors->get('lingkungan')" class="mt-1" />
                 </div>
             </div>
@@ -56,14 +56,14 @@
 
         {{-- Section: Akun --}}
         <div class="mb-5 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">🔐 Informasi Akun</h3>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3">Informasi Akun</h3>
 
             <!-- Username / Name -->
             <div class="mb-3">
                 <x-input-label for="name" value="Username" />
                 <x-text-input id="name" class="block mt-1 w-full" type="text" name="name"
                     :value="old('name')" required autocomplete="name"
-                    placeholder="Contoh: budi_santoso" />
+                    placeholder="Username untuk login" />
                 <x-input-error :messages="$errors->get('name')" class="mt-1" />
             </div>
 
@@ -72,7 +72,7 @@
                 <x-input-label for="email" value="Email" />
                 <x-text-input id="email" class="block mt-1 w-full" type="email" name="email"
                     :value="old('email')" required autocomplete="username"
-                    placeholder="Contoh: budi@email.com" />
+                    placeholder="Email aktif Anda" />
                 <x-input-error :messages="$errors->get('email')" class="mt-1" />
             </div>
 
@@ -100,7 +100,7 @@
             </a>
 
             <x-primary-button>
-                🚀 Daftar Sekarang
+                Daftar Sekarang
             </x-primary-button>
         </div>
     </form>

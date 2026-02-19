@@ -15,44 +15,44 @@ class DatabaseSeeder extends Seeder
     {
         // 1. Admin User
         $admin = User::create([
-            'name' => 'Admin Guru',
-            'full_name' => 'Administrator Guru',
-            'email' => 'admin@sekolah.com',
+            'name' => 'Admin Misdinar',
+            'full_name' => 'Administrator Misdinar',
+            'email' => 'admin@misdinar.com',
             'password' => Hash::make('password'),
             'role' => 'admin',
         ]);
 
         // 2. Student User
         $student = User::create([
-            'name' => 'Budi Hacker',
-            'full_name' => 'Muhammad Budi Santoso',
-            'kelas' => '9A',
-            'umur' => 15,
-            'lingkungan' => 'Lingk. 3',
-            'email' => 'budi@sekolah.com',
+            'name' => 'peserta_001',
+            'full_name' => 'Yohanes Pratama',
+            'kelas' => 'SMP Kelas 8',
+            'umur' => 14,
+            'lingkungan' => 'Paroki Santo Paulus',
+            'email' => 'yohanes@email.com',
             'password' => Hash::make('password'),
             'role' => 'student',
         ]);
 
         // 3. Extra students for testing monitoring
         $student2 = User::create([
-            'name' => 'Siti Rajin',
-            'full_name' => 'Siti Nurhaliza Rajin',
-            'kelas' => '9A',
-            'umur' => 14,
-            'lingkungan' => 'Lingk. 1',
-            'email' => 'siti@sekolah.com',
+            'name' => 'peserta_002',
+            'full_name' => 'Maria Angelica',
+            'kelas' => 'SMP Kelas 8',
+            'umur' => 13,
+            'lingkungan' => 'Paroki Santo Yohanes',
+            'email' => 'maria@email.com',
             'password' => Hash::make('password'),
             'role' => 'student',
         ]);
 
         $student3 = User::create([
-            'name' => 'Andi Curang',
-            'full_name' => 'Andi Pratama Curang',
-            'kelas' => '9B',
+            'name' => 'peserta_003',
+            'full_name' => 'Petrus Setiawan',
+            'kelas' => 'SMP Kelas 9',
             'umur' => 15,
-            'lingkungan' => 'Lingk. 2',
-            'email' => 'andi@sekolah.com',
+            'lingkungan' => 'Paroki Santo Petrus',
+            'email' => 'petrus@email.com',
             'password' => Hash::make('password'),
             'role' => 'student',
         ]);
@@ -62,70 +62,70 @@ class DatabaseSeeder extends Seeder
 
         // 5. Sample Exam
         $exam1 = Exam::create([
-            'title' => 'Ujian Matematika Dasar',
-            'mata_pelajaran' => 'Matematika',
-            'duration_minutes' => 60,
-            'is_active' => true,
-            'status' => 'draft',
-        ]);
-
-        $exam2 = Exam::create([
-            'title' => 'Ujian Bahasa Indonesia',
-            'mata_pelajaran' => 'Bahasa Indonesia',
+            'title' => 'Ujian Pengetahuan Liturgi',
+            'mata_pelajaran' => 'Liturgi',
             'duration_minutes' => 45,
             'is_active' => true,
             'status' => 'draft',
         ]);
 
-        // 6. Seed 5 random questions for Matematika exam
+        $exam2 = Exam::create([
+            'title' => 'Ujian Pengetahuan Kitab Suci',
+            'mata_pelajaran' => 'Kitab Suci',
+            'duration_minutes' => 30,
+            'is_active' => true,
+            'status' => 'draft',
+        ]);
+
+        // 6. Seed 5 sample questions for Liturgi exam
         $questions = [
             [
-                'question_text' => 'Berapakah hasil dari 15 × 8?',
-                'option_a' => '110',
-                'option_b' => '120',
-                'option_c' => '130',
-                'option_d' => '140',
+                'question_text' => 'Apa warna jubah imam pada masa Adven?',
+                'option_a' => 'Putih',
+                'option_b' => 'Ungu',
+                'option_c' => 'Hijau',
+                'option_d' => 'Merah',
                 'correct_answer' => 'b',
                 'points' => 10,
                 'order' => 1,
             ],
             [
-                'question_text' => 'Jika x + 5 = 12, berapakah nilai x?',
-                'option_a' => '5',
-                'option_b' => '6',
-                'option_c' => '7',
-                'option_d' => '8',
-                'correct_answer' => 'c',
+                'question_text' => 'Apa nama peralatan liturgi yang digunakan untuk membawa hosti?',
+                'option_a' => 'Piala',
+                'option_b' => 'Patena',
+                'option_c' => 'Monsrans',
+                'option_d' => 'Ciborium',
+                'correct_answer' => 'd',
                 'points' => 10,
                 'order' => 2,
             ],
             [
-                'question_text' => 'Berapakah luas persegi dengan sisi 9 cm?',
-                'option_a' => '18 cm²',
-                'option_b' => '36 cm²',
-                'option_c' => '72 cm²',
-                'option_d' => '81 cm²',
-                'correct_answer' => 'd',
+                'question_text' => 'Berapa kali Misdinar melakukan tanda salib kecil saat Injil dibacakan?',
+                'option_a' => '1 kali',
+                'option_b' => '2 kali',
+                'option_c' => '3 kali',
+                'option_d' => '4 kali',
+                'correct_answer' => 'c',
                 'points' => 15,
                 'order' => 3,
             ],
             [
-                'question_text' => 'Hasil dari √144 adalah...',
-                'option_a' => '10',
-                'option_b' => '11',
-                'option_c' => '12',
-                'option_d' => '14',
+                'question_text' => 'Apa yang harus dilakukan Misdinar saat membawa lilin dalam prosesi?',
+                'option_a' => 'Berjalan cepat',
+                'option_b' => 'Berjalan sambil berbicara',
+                'option_c' => 'Berjalan dengan khidmat dan hati-hati',
+                'option_d' => 'Berjalan sambil menunduk',
                 'correct_answer' => 'c',
                 'points' => 15,
                 'order' => 4,
             ],
             [
-                'question_text' => '25% dari 200 adalah...',
-                'option_a' => '25',
-                'option_b' => '40',
-                'option_c' => '50',
-                'option_d' => '75',
-                'correct_answer' => 'c',
+                'question_text' => 'Pada saat konsekrasi, Misdinar harus:',
+                'option_a' => 'Berdiri tegak',
+                'option_b' => 'Berlutut dengan khidmat',
+                'option_c' => 'Duduk tenang',
+                'option_d' => 'Berdiri sambil menunduk',
+                'correct_answer' => 'b',
                 'points' => 10,
                 'order' => 5,
             ],
@@ -136,12 +136,12 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->command->info("-----------------------------------------");
-        $this->command->info("ADMIN  : admin@sekolah.com / password");
-        $this->command->info("SISWA 1: budi@sekolah.com  / password");
-        $this->command->info("SISWA 2: siti@sekolah.com  / password");
-        $this->command->info("SISWA 3: andi@sekolah.com  / password");
-        $this->command->info("API TOKEN: {$token}");
-        $this->command->info("EXAM '{$exam1->title}' => {$exam1->questions()->count()} soal seeded");
+        $this->command->info("ADMIN     : admin@misdinar.com / password");
+        $this->command->info("PESERTA 1 : yohanes@email.com / password");
+        $this->command->info("PESERTA 2 : maria@email.com    / password");
+        $this->command->info("PESERTA 3 : petrus@email.com   / password");
+        $this->command->info("API TOKEN : {$token}");
+        $this->command->info("UJIAN     : '{$exam1->title}' => {$exam1->questions()->count()} soal");
         $this->command->info("-----------------------------------------");
     }
 }

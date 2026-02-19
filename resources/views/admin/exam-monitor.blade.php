@@ -62,7 +62,7 @@
     {{-- RIGHT: Control Panel --}}
     <div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-8">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">🎮 Kontrol Ujian</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Kontrol Ujian</h2>
 
             {{-- Current Status --}}
             <div class="mb-6">
@@ -110,7 +110,10 @@
             @if(in_array($exam->status, ['lobby', 'started']))
                 <a href="{{ route('admin.questions.show', $exam) }}" target="_blank"
                    class="w-full mb-4 flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold py-3 px-4 rounded-xl text-sm border border-indigo-200 transition-colors">
-                    ✏️ Edit Soal (tab baru)
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Edit Soal (tab baru)
                 </a>
             @endif
 
@@ -121,7 +124,7 @@
                     <button type="submit" id="start-btn"
                         class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         onclick="return confirm('Yakin mulai ujian? Semua siswa akan langsung masuk countdown 5 detik.')">
-                        🚀 MULAI UJIAN
+                        MULAI UJIAN
                     </button>
                 </form>
                 <p class="text-xs text-gray-400 text-center mt-3">
@@ -129,11 +132,11 @@
                 </p>
             @elseif($exam->status === 'countdown')
                 <div class="w-full bg-orange-500 text-white font-bold py-4 px-6 rounded-xl text-lg text-center animate-pulse">
-                    ⏳ COUNTDOWN...
+                    COUNTDOWN...
                 </div>
             @elseif($exam->status === 'started')
                 <div class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-xl text-lg text-center mb-3">
-                    ✅ UJIAN BERLANGSUNG
+                    UJIAN BERLANGSUNG
                 </div>
 
                 {{-- STOP EXAM Button --}}
@@ -141,8 +144,8 @@
                     @csrf
                     <button type="submit"
                         class="w-full bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white font-bold py-4 px-6 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
-                        onclick="return confirm('⛔ HENTIKAN UJIAN?\n\nSemua siswa akan otomatis dikumpulkan jawabannya dan ujian berakhir.\n\nTindakan ini TIDAK bisa dibatalkan!')">
-                        ⛔ HENTIKAN UJIAN
+                        onclick="return confirm('HENTIKAN UJIAN?\n\nSemua siswa akan otomatis dikumpulkan jawabannya dan ujian berakhir.\n\nTindakan ini TIDAK bisa dibatalkan!')">
+                        HENTIKAN UJIAN
                     </button>
                 </form>
                 <p class="text-xs text-gray-400 text-center mt-3">
@@ -150,7 +153,7 @@
                 </p>
             @elseif($exam->status === 'finished')
                 <div class="w-full bg-gray-800 text-white font-bold py-4 px-6 rounded-xl text-lg text-center mb-3">
-                    🏁 UJIAN SELESAI
+                    UJIAN SELESAI
                 </div>
 
                 {{-- Export Excel --}}
@@ -159,7 +162,7 @@
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
-                    📊 Export ke Excel
+                    Export ke Excel
                 </a>
                 <p class="text-xs text-gray-400 text-center mt-3">
                     Download laporan lengkap: skor, jawaban, pelanggaran, dan statistik.
@@ -188,11 +191,11 @@
             case 'safe':
                 return { bg: 'bg-green-500', ring: 'ring-green-300', text: 'text-green-700', badge: 'bg-green-100 text-green-800', label: '' };
             case 'warning':
-                return { bg: 'bg-yellow-500', ring: 'ring-yellow-300', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-800', label: '⚠️' };
+                return { bg: 'bg-yellow-500', ring: 'ring-yellow-300', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-800', label: 'PERINGATAN' };
             case 'danger':
-                return { bg: 'bg-red-500', ring: 'ring-red-300', text: 'text-red-700', badge: 'bg-red-100 text-red-800', label: '🚨' };
+                return { bg: 'bg-red-500', ring: 'ring-red-300', text: 'text-red-700', badge: 'bg-red-100 text-red-800', label: 'BAHAYA' };
             case 'terminated':
-                return { bg: 'bg-gray-800', ring: 'ring-gray-400', text: 'text-gray-900', badge: 'bg-gray-800 text-white', label: '⛔ TERMINATED' };
+                return { bg: 'bg-gray-800', ring: 'ring-gray-400', text: 'text-gray-900', badge: 'bg-gray-800 text-white', label: 'TERMINATED' };
         }
     }
 
@@ -203,12 +206,12 @@
         const actionBtn = level === 'terminated'
             ? `<button onclick="reinstateStudent(${student.session_id})"
                  class="px-3 py-1.5 text-xs font-medium bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors">
-                 ✅ Izinkan Kembali
+                 Izinkan Kembali
                </button>`
             : (level === 'danger'
                 ? `<button onclick="terminateStudent(${student.session_id})"
                      class="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors">
-                     ⛔ Terminate
+                     Terminate
                    </button>`
                 : '');
 

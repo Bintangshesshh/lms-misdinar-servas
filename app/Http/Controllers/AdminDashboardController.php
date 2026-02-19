@@ -6,12 +6,17 @@ use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Exports\ExamResultExport;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AdminDashboardController extends Controller
 {
     public function index()
     {
-        $exams = Exam::withCount(['sessions', 'questions'])->get();
+        // Cache exam list for 30 seconds to reduce DB load
+        $exams = Cache::remember('admin.exams.list', 30, function () {
+            return Exam::withCount(['sessions', 'questions'])->get();
+        });
+        
         return view('admin.dashboard', compact('exams'));
     }
 
@@ -24,6 +29,11 @@ class AdminDashboardController extends Controller
     public function openLobby(Exam $exam)
     {
         $exam->update(['status' => 'lobby']);
+        
+        // Clear caches when exam status changes
+        Cache::forget('admin.exams.list');
+        Cache::forget("exam.{$exam->id}.lobby_status");
+        
         return back()->with('success', 'Lobby dibuka! Siswa sekarang bisa join.');
     }
 
@@ -37,7 +47,15 @@ class AdminDashboardController extends Controller
         dispatch(function () use ($exam) {
             sleep(5);
             $exam->update(['status' => 'started']);
+            
+            // Clear caches after status change
+            Cache::forget('admin.exams.list');
+            Cache::forget("exam.{$exam->id}.lobby_status");
         })->afterResponse();
+
+        // Clear caches immediately for countdown
+        Cache::forget('admin.exams.list');
+        Cache::forget("exam.{$exam->id}.lobby_status");
 
         return back()->with('success', 'Countdown dimulai! Ujian akan dimulai dalam 5 detik.');
     }
@@ -47,25 +65,32 @@ class AdminDashboardController extends Controller
      */
     public function lobbyStatus(Exam $exam)
     {
-        $students = $exam->sessions()
-            ->whereNotNull('joined_at')
-            ->with('user:id,name,email')
-            ->get()
-            ->map(fn($s) => [
-                'id' => $s->user->id,
-                'session_id' => $s->id,
-                'name' => $s->user->name,
-                'email' => $s->user->email,
-                'joined_at' => $s->joined_at->diffForHumans(),
-                'integrity' => $s->score_integrity,
-                'status' => $s->status,
-            ]);
+        // Cache lobby status for 2 seconds (frequent polling endpoint)
+        $cacheKey = "exam.{$exam->id}.lobby_status";
+        
+        $data = Cache::remember($cacheKey, 2, function () use ($exam) {
+            $students = $exam->sessions()
+                ->whereNotNull('joined_at')
+                ->with('user:id,name,email')
+                ->get()
+                ->map(fn($s) => [
+                    'id' => $s->user->id,
+                    'session_id' => $s->id,
+                    'name' => $s->user->name,
+                    'email' => $s->user->email,
+                    'joined_at' => $s->joined_at->diffForHumans(),
+                    'integrity' => $s->score_integrity,
+                    'status' => $s->status,
+                ]);
 
-        return response()->json([
-            'exam_status' => $exam->status,
-            'student_count' => $students->count(),
-            'students' => $students,
-        ]);
+            return [
+                'exam_status' => $exam->status,
+                'student_count' => $students->count(),
+                'students' => $students,
+            ];
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -171,6 +196,8 @@ class AdminDashboardController extends Controller
             'duration_minutes' => $request->duration_minutes,
             'is_active' => true,
             'status' => 'draft',
+            'show_answers' => $request->has('show_answers'),
+            'show_score_to_student' => $request->has('show_score_to_student'),
         ]);
 
         // Redirect to kelola soal so admin can immediately add questions
@@ -194,6 +221,8 @@ class AdminDashboardController extends Controller
             'title' => $request->title,
             'mata_pelajaran' => $request->mata_pelajaran,
             'duration_minutes' => $request->duration_minutes,
+            'show_answers' => $request->has('show_answers'),
+            'show_score_to_student' => $request->has('show_score_to_student'),
         ]);
 
         return redirect()->route('admin.dashboard')->with('success', 'Ujian "' . $exam->title . '" berhasil diperbarui!');

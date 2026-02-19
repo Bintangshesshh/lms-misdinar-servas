@@ -1,9 +1,9 @@
 @extends('layouts.app-custom')
-@section('title', 'Dashboard Siswa')
+@section('title', 'Dashboard Peserta')
 
 @section('content')
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-gray-900">Dashboard Siswa</h1>
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard Peserta</h1>
     <p class="mt-1 text-gray-600">Pilih ujian yang tersedia untuk bergabung.</p>
 </div>
 
@@ -13,7 +13,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
         <h3 class="mt-2 text-lg font-medium text-gray-900">Belum ada ujian tersedia</h3>
-        <p class="mt-1 text-gray-500">Tunggu admin membuka lobby ujian.</p>
+        <p class="mt-1 text-gray-500">Tunggu pengumuman pembukaan ujian.</p>
     </div>
 @else
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -26,7 +26,7 @@
                             @if($exam->status === 'lobby') bg-yellow-100 text-yellow-800
                             @elseif($exam->status === 'started') bg-green-100 text-green-800
                             @else bg-gray-100 text-gray-800 @endif">
-                            {{ $exam->status === 'lobby' ? '🟡 Lobby Terbuka' : ($exam->status === 'started' ? '🟢 Sedang Berlangsung' : ($exam->status === 'finished' ? '🏁 Selesai' : ucfirst($exam->status))) }}
+                            {{ $exam->status === 'lobby' ? 'Lobby Terbuka' : ($exam->status === 'started' ? 'Sedang Berlangsung' : ($exam->status === 'finished' ? 'Selesai' : ucfirst($exam->status))) }}
                         </span>
                         <span class="text-sm text-gray-500">{{ $exam->duration_minutes }} menit</span>
                     </div>
@@ -37,7 +37,7 @@
                         <form action="{{ route('student.exam.join', $exam) }}" method="POST">
                             @csrf
                             <button type="submit" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors">
-                                🚪 Masuk Lobby
+                                Masuk Lobby
                             </button>
                         </form>
                     @elseif($exam->status === 'started')
@@ -47,20 +47,20 @@
                         @if($mySession && $mySession->status === 'ongoing')
                             <a href="{{ route('student.exam.take', $exam) }}"
                                class="block w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-center">
-                                🔄 Lanjutkan Ujian
+                                Lanjutkan Ujian
                             </a>
                         @elseif($mySession && $mySession->status === 'blocked')
                             <div class="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                                <p class="text-sm text-red-700 font-semibold">⛔ Anda di-terminate</p>
+                                <p class="text-sm text-red-700 font-semibold">Akses Di-blokir</p>
                                 <p class="text-xs text-red-500 mt-1">Menunggu admin mengizinkan kembali</p>
                             </div>
                         @elseif($mySession && $mySession->status === 'completed')
                             <a href="{{ route('student.exam.result', $exam) }}"
                                class="block w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-center">
-                                📊 Lihat Hasil
+                                Lihat Hasil
                             </a>
                         @else
-                            <p class="mt-4 text-sm text-orange-600 font-medium">⚠️ Ujian sudah dimulai</p>
+                            <p class="mt-4 text-sm text-orange-600 font-medium">Ujian sudah dimulai</p>
                         @endif
                     @elseif($exam->status === 'finished')
                         @php
@@ -69,7 +69,7 @@
                         @if($mySession)
                             <a href="{{ route('student.exam.result', $exam) }}"
                                class="block w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-center">
-                                📊 Lihat Hasil
+                                Lihat Hasil
                             </a>
                         @else
                             <p class="mt-4 text-sm text-gray-500">Ujian telah berakhir</p>

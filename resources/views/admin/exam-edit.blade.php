@@ -58,6 +58,41 @@
                 @enderror
             </div>
 
+            {{-- Privacy Settings --}}
+            <div class="bg-orange-50 border border-orange-200 rounded-xl p-5">
+                <h3 class="text-sm font-bold text-orange-900 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    Pengaturan Privasi Hasil
+                </h3>
+                <p class="text-xs text-orange-700 mb-4">Atur apa yang bisa dilihat peserta setelah ujian selesai</p>
+
+                <div class="space-y-3">
+                    {{-- Show Score Toggle --}}
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" name="show_score_to_student" value="1" 
+                               {{ old('show_score_to_student', $exam->show_score_to_student) ? 'checked' : '' }}
+                               class="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">Tampilkan Skor ke Peserta</p>
+                            <p class="text-xs text-gray-600">Peserta bisa melihat nilai akademik & integritas mereka</p>
+                        </div>
+                    </label>
+
+                    {{-- Show Answers Toggle --}}
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" name="show_answers" value="1"
+                               {{ old('show_answers', $exam->show_answers) ? 'checked' : '' }}
+                               class="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">Tampilkan Pembahasan & Kunci Jawaban</p>
+                            <p class="text-xs text-red-600 font-medium">⚠️ TIDAK DIREKOMENDASIKAN: Peserta yang sudah selesai bisa bocorkan jawaban ke yang masih ujian</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
             <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <h3 class="text-sm font-semibold text-gray-700 mb-2">Info Ujian</h3>
                 <div class="grid grid-cols-2 gap-3 text-sm text-gray-600">

@@ -66,10 +66,14 @@ class ExamLobbyController extends Controller
                 ->with('error', 'Anda telah di-terminate dari ujian ini.');
         }
 
-        // Load questions for this exam
-        $questions = $exam->questions()->orderBy('order')->get();
+        // Load questions with eager loading (cache for 10 minutes since questions don't change)
+        $questions = \Illuminate\Support\Facades\Cache::remember(
+            "exam.{$exam->id}.questions",
+            600,
+            fn() => $exam->questions()->orderBy('order')->get()
+        );
 
-        // Load existing answers for this session
+        // Load existing answers for this session in single query
         $answers = StudentAnswer::where('exam_session_id', $session->id)
             ->pluck('selected_answer', 'question_id')
             ->toArray();
@@ -130,18 +134,25 @@ class ExamLobbyController extends Controller
             ->where('status', 'ongoing')
             ->firstOrFail();
 
-        // Calculate academic score
-        $questions = $exam->questions;
+        // Eager load questions to avoid N+1 query
+        $questions = \Illuminate\Support\Facades\Cache::remember(
+            "exam.{$exam->id}.questions",
+            600,
+            fn() => $exam->questions()->get()->keyBy('id')
+        );
+        
         $totalPoints = $questions->sum('points');
         $earnedPoints = 0;
 
-        $answers = StudentAnswer::where('exam_session_id', $session->id)->get();
+        // Load answers with question relationship in single query
+        $answers = StudentAnswer::where('exam_session_id', $session->id)
+            ->where('is_correct', true)
+            ->get();
+            
         foreach ($answers as $answer) {
-            if ($answer->is_correct) {
-                $question = $questions->firstWhere('id', $answer->question_id);
-                if ($question) {
-                    $earnedPoints += $question->points;
-                }
+            $question = $questions->get($answer->question_id);
+            if ($question) {
+                $earnedPoints += $question->points;
             }
         }
 
@@ -167,7 +178,14 @@ class ExamLobbyController extends Controller
             ->where('exam_id', $exam->id)
             ->firstOrFail();
 
-        $questions = $exam->questions()->orderBy('order')->get();
+        // Cache questions (they don't change after exam creation)
+        $questions = \Illuminate\Support\Facades\Cache::remember(
+            "exam.{$exam->id}.questions",
+            600,
+            fn() => $exam->questions()->orderBy('order')->get()
+        );
+        
+        // Load answers in single optimized query
         $answers = StudentAnswer::where('exam_session_id', $session->id)
             ->pluck('selected_answer', 'question_id')
             ->toArray();

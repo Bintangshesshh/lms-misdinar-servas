@@ -142,7 +142,7 @@
         {{-- Header: Brand + Toggle --}}
         <div class="sidebar-header h-16 flex items-center justify-between px-4 border-b border-gray-200 transition-all duration-300">
             <div class="sidebar-brand flex items-center gap-3 min-w-0 transition-all duration-300">
-                <img src="{{ asset('img/misdnar2.jpg') }}" alt="Logo Misdinar" class="w-9 h-9 rounded-lg object-cover shadow-sm flex-shrink-0">
+                <img src="{{ asset('img/misdnar2.jpg') }}" alt="Logo Misdinar" class="w-10 h-10 rounded-lg object-contain shadow-sm flex-shrink-0 bg-white p-0.5">
                 <span class="sidebar-brand-text text-lg font-bold text-misdinar-dark whitespace-nowrap transition-all duration-300">LMS Misdinar</span>
             </div>
             <button id="sidebar-toggle" class="sidebar-toggle-btn flex-shrink-0 p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors" title="Toggle Sidebar">

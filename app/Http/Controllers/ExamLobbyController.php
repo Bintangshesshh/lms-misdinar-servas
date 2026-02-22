@@ -7,6 +7,7 @@ use App\Models\ExamSession;
 use App\Models\StudentAnswer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class ExamLobbyController extends Controller
 {
@@ -30,6 +31,9 @@ class ExamLobbyController extends Controller
                 'score_integrity' => 100,
                 'status' => 'ongoing',
             ]);
+
+            // Clear admin lobby cache so new student appears immediately
+            Cache::forget("exam.{$exam->id}.lobby_status");
         }
 
         return redirect()->route('student.exam.lobby', $exam);
@@ -83,6 +87,7 @@ class ExamLobbyController extends Controller
 
     /**
      * Save a single answer (auto-save via AJAX)
+     * Optimized: cached question lookup + cached total count
      */
     public function saveAnswer(Request $request, Exam $exam)
     {
@@ -96,7 +101,17 @@ class ExamLobbyController extends Controller
             ->where('status', 'ongoing')
             ->firstOrFail();
 
-        $question = $exam->questions()->findOrFail($request->question_id);
+        // Use cached questions instead of querying each time
+        $questions = Cache::remember(
+            "exam.{$exam->id}.questions",
+            600,
+            fn() => $exam->questions()->get()->keyBy('id')
+        );
+
+        $question = $questions->get($request->question_id);
+        if (!$question) {
+            return response()->json(['error' => 'Question not found'], 404);
+        }
 
         $isCorrect = $question->correct_answer === $request->selected_answer;
 
@@ -111,8 +126,8 @@ class ExamLobbyController extends Controller
             ]
         );
 
-        // Count answered questions
-        $totalQuestions = $exam->questions()->count();
+        // Use cached total instead of querying
+        $totalQuestions = $questions->count();
         $answeredCount = StudentAnswer::where('exam_session_id', $session->id)
             ->whereNotNull('selected_answer')
             ->count();
@@ -126,47 +141,72 @@ class ExamLobbyController extends Controller
 
     /**
      * Submit the exam (finalize)
+     * Protected against race conditions and double-submit
      */
     public function submitExam(Request $request, Exam $exam)
     {
-        $session = ExamSession::where('user_id', Auth::id())
-            ->where('exam_id', $exam->id)
-            ->where('status', 'ongoing')
-            ->firstOrFail();
-
-        // Eager load questions to avoid N+1 query
-        $questions = \Illuminate\Support\Facades\Cache::remember(
-            "exam.{$exam->id}.questions",
-            600,
-            fn() => $exam->questions()->get()->keyBy('id')
-        );
+        $userId = Auth::id();
         
-        $totalPoints = $questions->sum('points');
-        $earnedPoints = 0;
+        // Use database transaction with row lock to prevent race conditions
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($exam, $userId) {
+            // Lock the session row to prevent concurrent updates
+            $session = ExamSession::where('user_id', $userId)
+                ->where('exam_id', $exam->id)
+                ->lockForUpdate()
+                ->first();
 
-        // Load answers with question relationship in single query
-        $answers = StudentAnswer::where('exam_session_id', $session->id)
-            ->where('is_correct', true)
-            ->get();
-            
-        foreach ($answers as $answer) {
-            $question = $questions->get($answer->question_id);
-            if ($question) {
-                $earnedPoints += $question->points;
+            // Guard: session not found
+            if (!$session) {
+                return redirect()->route('student.dashboard')
+                    ->with('error', 'Sesi ujian tidak ditemukan.');
             }
-        }
 
-        $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
+            // Guard: already completed (double-submit protection)
+            if ($session->status === 'completed') {
+                return redirect()->route('student.exam.result', $exam)
+                    ->with('info', 'Ujian sudah dikumpulkan sebelumnya.');
+            }
 
-        // Update session
-        $session->update([
-            'score_academic' => $academicScore,
-            'status' => 'completed',
-            'end_time' => now(),
-        ]);
+            // Guard: blocked by admin
+            if ($session->status === 'blocked') {
+                return redirect()->route('student.dashboard')
+                    ->with('error', 'Anda telah di-terminate dari ujian ini.');
+            }
 
-        return redirect()->route('student.exam.result', $exam)
-            ->with('success', 'Ujian telah diselesaikan!');
+            // Eager load questions to avoid N+1 query
+            $questions = \Illuminate\Support\Facades\Cache::remember(
+                "exam.{$exam->id}.questions",
+                600,
+                fn() => $exam->questions()->get()->keyBy('id')
+            );
+            
+            $totalPoints = $questions->sum('points') ?: $questions->count();
+            $earnedPoints = 0;
+
+            // Load answers in single query
+            $answers = StudentAnswer::where('exam_session_id', $session->id)
+                ->where('is_correct', true)
+                ->get();
+                
+            foreach ($answers as $answer) {
+                $question = $questions->get($answer->question_id);
+                if ($question) {
+                    $earnedPoints += ($question->points ?: 1);
+                }
+            }
+
+            $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
+
+            // Update session
+            $session->update([
+                'score_academic' => $academicScore,
+                'status' => 'completed',
+                'end_time' => now(),
+            ]);
+
+            return redirect()->route('student.exam.result', $exam)
+                ->with('success', 'Ujian telah diselesaikan!');
+        });
     }
 
     /**
@@ -197,18 +237,31 @@ class ExamLobbyController extends Controller
         return view('student.exam-result', compact('exam', 'session', 'questions', 'answers', 'correctAnswers'));
     }
 
-    // Polling endpoint for students to check exam status
+    /**
+     * Polling endpoint for students to check exam status.
+     * Cached per-exam for 3 seconds (shared by all students in same exam).
+     * Student-specific data (session status) checked separately with lightweight query.
+     */
     public function pollStatus(Exam $exam)
     {
-        $exam->refresh();
+        // Cache exam-level data for 3 seconds (shared across ALL students polling same exam)
+        // This means 100 students = 1 query every 3s instead of 100 queries every 5s
+        $examData = Cache::remember("exam.{$exam->id}.poll_status", 3, function () use ($exam) {
+            $exam->refresh();
+            return [
+                'exam_status' => $exam->status,
+                'started_at' => $exam->started_at?->toISOString(),
+            ];
+        });
 
-        // Also check if the current student's session was terminated by admin
+        // Student-specific session check (lightweight single query, no caching needed)
         $sessionStatus = null;
         $sessionIntegrity = null;
         $user = Auth::user();
         if ($user) {
             $session = ExamSession::where('exam_id', $exam->id)
                 ->where('user_id', $user->id)
+                ->select('status', 'score_integrity')
                 ->first();
             if ($session) {
                 $sessionStatus = $session->status;
@@ -217,8 +270,8 @@ class ExamLobbyController extends Controller
         }
 
         return response()->json([
-            'exam_status' => $exam->status,
-            'started_at' => $exam->started_at?->toISOString(),
+            'exam_status' => $examData['exam_status'],
+            'started_at' => $examData['started_at'],
             'session_status' => $sessionStatus,
             'session_integrity' => $sessionIntegrity,
         ]);

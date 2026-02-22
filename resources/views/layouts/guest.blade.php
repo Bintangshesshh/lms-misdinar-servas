@@ -15,15 +15,15 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-gray-900 antialiased">
-        <div class="auth-layout min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0">
+        <div class="auth-layout min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 px-4">
             <div class="fade-in">
-                <a href="/" class="flex flex-col items-center gap-3">
-                    <img src="{{ asset('img/misdnar2.jpg') }}" alt="Logo Misdinar" class="w-28 h-28 rounded-2xl object-cover shadow-xl ring-4 ring-white/30">
-                    <h1 class="text-2xl font-bold text-white drop-shadow-lg">{{ config('app.name', 'LMS Misdinar') }}</h1>
+                <a href="/" class="flex flex-col items-center gap-2 sm:gap-3">
+                    <img src="{{ asset('img/misdnar2.jpg') }}" alt="Logo Misdinar" class="w-20 h-20 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl object-contain shadow-xl ring-2 sm:ring-4 ring-white/30 bg-white p-1.5 sm:p-2">
+                    <h1 class="text-xl sm:text-2xl font-bold text-white drop-shadow-lg text-center">{{ config('app.name', 'LMS Misdinar') }}</h1>
                 </a>
             </div>
 
-            <div class="w-full sm:max-w-md mt-6 px-8 py-8 auth-card fade-in">
+            <div class="w-full sm:max-w-md mt-4 sm:mt-6 px-4 py-6 sm:px-8 sm:py-8 auth-card fade-in">
                 {{ $slot }}
             </div>
         </div>

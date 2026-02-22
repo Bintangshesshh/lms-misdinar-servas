@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 
- Route::get('/', function () {
+Route::get('/', function () {
     return redirect()->route('login');
 });
 
@@ -32,20 +32,20 @@ Route::middleware('auth')->group(function () {
 });
 
 // Student Routes
-Route::middleware(['auth', 'role:student', 'throttle:60,1'])->prefix('student')->name('student.')->group(function () {
+Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')->group(function () {
     Route::get('/dashboard', [StudentDashboardController::class, 'index'])->name('dashboard');
     Route::get('/exam/{exam}/lobby', [ExamLobbyController::class, 'studentLobby'])->name('exam.lobby');
-    Route::post('/exam/{exam}/join', [ExamLobbyController::class, 'joinLobby'])->name('exam.join')->middleware('throttle:10,1');
+    Route::post('/exam/{exam}/join', [ExamLobbyController::class, 'joinLobby'])->name('exam.join');
     Route::get('/exam/{exam}/take', [ExamLobbyController::class, 'takeExam'])->name('exam.take');
-    Route::post('/exam/{exam}/save-answer', [ExamLobbyController::class, 'saveAnswer'])->name('exam.saveAnswer')->middleware('throttle:120,1');
-    Route::post('/exam/{exam}/submit', [ExamLobbyController::class, 'submitExam'])->name('exam.submit')->middleware('throttle:5,1');
+    Route::post('/exam/{exam}/save-answer', [ExamLobbyController::class, 'saveAnswer'])->name('exam.saveAnswer');
+    Route::post('/exam/{exam}/submit', [ExamLobbyController::class, 'submitExam'])->name('exam.submit');
     Route::get('/exam/{exam}/result', [ExamLobbyController::class, 'examResult'])->name('exam.result');
-    Route::post('/integrity/log-violation', [\App\Http\Controllers\Api\IntegrityController::class, 'logViolation'])->name('integrity.logViolation')->middleware('throttle:30,1');
+    Route::post('/integrity/log-violation', [\App\Http\Controllers\Api\IntegrityController::class, 'logViolation'])->name('integrity.logViolation');
     Route::get('/integrity/status/{session_id}', [\App\Http\Controllers\Api\IntegrityController::class, 'getStatus'])->name('integrity.status');
 });
 
 // Admin Routes
-Route::middleware(['auth', 'role:admin', 'throttle:120,1'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     // Exam CRUD
@@ -67,7 +67,7 @@ Route::middleware(['auth', 'role:admin', 'throttle:120,1'])->prefix('admin')->na
     Route::get('/exam/{exam}/export', [AdminDashboardController::class, 'exportResult'])->name('exam.export');
 
     // Polling endpoints (JSON) - Higher rate limit for monitoring
-    Route::get('/exam/{exam}/lobby-status', [AdminDashboardController::class, 'lobbyStatus'])->name('exam.lobbyStatus')->middleware('throttle:180,1');
+    Route::get('/exam/{exam}/lobby-status', [AdminDashboardController::class, 'lobbyStatus'])->name('exam.lobbyStatus');
 
     // Question management
     Route::get('/questions', [QuestionController::class, 'index'])->name('questions.index');
@@ -80,8 +80,8 @@ Route::middleware(['auth', 'role:admin', 'throttle:120,1'])->prefix('admin')->na
     Route::post('/questions/{exam}/set-all-points', [QuestionController::class, 'setAllPoints'])->name('questions.setAllPoints');
 });
 
-// Student polling endpoint - Separate rate limit for high-frequency polling
-Route::middleware(['auth', 'role:student', 'throttle:120,1'])->group(function () {
+// Student polling endpoint - No group throttle (polling is already cached server-side)
+Route::middleware(['auth', 'role:student'])->group(function () {
     Route::get('/api/exam/{exam}/poll-status', [ExamLobbyController::class, 'pollStatus'])->name('exam.pollStatus');
 });
 

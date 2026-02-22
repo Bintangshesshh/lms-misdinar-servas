@@ -5,9 +5,9 @@
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
-                        <img src="{{ asset('img/misdnar2.jpg') }}" alt="Logo Misdinar" class="h-10 w-10 rounded-xl object-cover shadow-md">
-                        <span class="hidden sm:block font-bold text-misdinar-dark">{{ config('app.name', 'LMS Misdinar') }}</span>
+                    <a href="{{ route('dashboard') }}" class="flex items-center gap-2 sm:gap-3">
+                        <img src="{{ asset('img/misdnar2.jpg') }}" alt="Logo Misdinar" class="h-10 w-10 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl object-contain shadow-md bg-white p-1">
+                        <span class="hidden sm:block font-bold text-misdinar-dark text-sm sm:text-base">{{ config('app.name', 'LMS Misdinar') }}</span>
                     </a>
                 </div>
 
@@ -23,8 +23,8 @@
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-misdinar-dark bg-white hover:text-misdinar-primary focus:outline-none transition ease-in-out duration-150">
-                            <div>{{ Auth::user()->name }}</div>
+                        <button class="inline-flex items-center px-2 sm:px-3 py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-md text-misdinar-dark bg-white hover:text-misdinar-primary focus:outline-none transition ease-in-out duration-150">
+                            <div class="truncate max-w-[100px] sm:max-w-none">{{ Auth::user()->name }}</div>
 
                             <div class="ms-1">
                                 <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">

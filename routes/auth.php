@@ -54,3 +54,8 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
 });
+
+// Fallback for GET /logout (user typing in URL bar or bookmark)
+Route::get('logout', function () {
+    return redirect()->route('login')->with('info', 'Gunakan tombol Logout untuk keluar.');
+});

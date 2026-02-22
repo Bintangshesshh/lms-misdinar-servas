@@ -311,6 +311,34 @@
     var currentQuestion = 0;
     var answeredSet = new Set();
     var examEnded = false;
+    
+    // Create save status indicator element
+    var saveStatusEl = document.createElement('div');
+    saveStatusEl.id = 'save-status';
+    saveStatusEl.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:8px 16px;border-radius:8px;font-size:14px;z-index:9999;display:none;transition:opacity 0.3s;';
+    document.body.appendChild(saveStatusEl);
+    
+    function showSaveStatus(status) {
+        var el = document.getElementById('save-status');
+        if (!el) return;
+        
+        if (status === 'saving') {
+            el.style.display = 'block';
+            el.style.background = '#3B82F6';
+            el.style.color = 'white';
+            el.textContent = '💾 Menyimpan...';
+        } else if (status === 'saved') {
+            el.style.background = '#10B981';
+            el.style.color = 'white';
+            el.textContent = '✓ Tersimpan';
+            setTimeout(function() { el.style.display = 'none'; }, 2000);
+        } else if (status === 'error') {
+            el.style.background = '#EF4444';
+            el.style.color = 'white';
+            el.textContent = '✗ Gagal menyimpan!';
+            setTimeout(function() { el.style.display = 'none'; }, 5000);
+        }
+    }
 
     // Set form action from data attribute
     var submitForm = document.getElementById('submit-form');
@@ -320,6 +348,43 @@
     document.querySelectorAll('.answer-radio-input:checked').forEach(function(input) {
         answeredSet.add(Number(input.dataset.questionId));
     });
+    
+    // Try to restore answers from localStorage backup (if server didn't have them)
+    try {
+        var localAnswers = JSON.parse(localStorage.getItem('exam_' + EXAM_ID + '_answers') || '{}');
+        var restoredCount = 0;
+        for (var qId in localAnswers) {
+            if (!answeredSet.has(Number(qId))) {
+                var opt = localAnswers[qId];
+                var radio = document.querySelector('.answer-radio-input[data-question-id="' + qId + '"][data-option="' + opt + '"]');
+                if (radio && !radio.checked) {
+                    radio.checked = true;
+                    answeredSet.add(Number(qId));
+                    restoredCount++;
+                    
+                    // Update visual state
+                    var label = radio.closest('.answer-option');
+                    if (label) {
+                        label.classList.remove('border-gray-200', 'hover:border-indigo-300', 'hover:bg-gray-50');
+                        label.classList.add('border-indigo-500', 'bg-indigo-50');
+                    }
+                    
+                    // Sync to server
+                    var qIndex = Number(radio.dataset.questionIndex || 0);
+                    (function(questionId, option, index) {
+                        setTimeout(function() {
+                            selectAnswer(questionId, option, index);
+                        }, restoredCount * 500);
+                    })(Number(qId), opt, qIndex);
+                }
+            }
+        }
+        if (restoredCount > 0) {
+            updateAnsweredCount();
+        }
+    } catch (e) {
+        // Silent fail for localStorage
+    }
 
     // ---- EVENT DELEGATION: Nav dots ----
     document.querySelectorAll('.nav-dot-btn').forEach(function(btn) {
@@ -328,7 +393,26 @@
         });
     });
 
-    // ---- EVENT DELEGATION: Answer radio inputs ----
+    // ---- EVENT DELEGATION: Answer option labels (click) ----
+    // Using click on label wrapper for better reliability
+    document.querySelectorAll('.answer-option').forEach(function(label) {
+        label.addEventListener('click', function(e) {
+            var qId = Number(this.dataset.questionId);
+            var opt = this.dataset.option;
+            var input = this.querySelector('.answer-radio-input');
+            var qIndex = input ? Number(input.dataset.questionIndex) : 0;
+            
+            // Manually check the radio
+            if (input) {
+                input.checked = true;
+            }
+            
+            // Call selectAnswer
+            selectAnswer(qId, opt, qIndex);
+        });
+    });
+
+    // ---- EVENT DELEGATION: Answer radio inputs (backup for programmatic changes) ----
     document.querySelectorAll('.answer-radio-input').forEach(function(input) {
         input.addEventListener('change', function() {
             selectAnswer(Number(this.dataset.questionId), this.dataset.option, Number(this.dataset.questionIndex));
@@ -355,83 +439,67 @@
     // SUBMIT FORM WITH IMMEDIATE UI LOCK
     // ============================================
     submitForm.addEventListener('submit', function(e) {
-        // Prevent form submission temporarily
         e.preventDefault();
-        
-        console.log('[Submit] Form submit triggered - LOCKING UI immediately!');
         
         // IMMEDIATE ACTION: Lock everything BEFORE any network request
         lockUIForSubmission();
         
         // Now submit the form after UI is locked
         setTimeout(function() {
-            console.log('[Submit] UI locked, now submitting form...');
-            // Remove event listener to prevent loop
             submitForm.removeEventListener('submit', arguments.callee);
-            // Actually submit the form
             submitForm.submit();
-        }, 100); // Small delay to ensure UI updates are rendered
+        }, 100);
     });
 
     function lockUIForSubmission() {
-        console.log('[Submit] Locking UI: disabling all interactions');
-        
-        // 1. Set examEnded flag (prevents all other actions)
+        // Set examEnded flag (prevents all other actions)
         examEnded = true;
         
-        // 2. Show fullscreen submitting overlay
+        // Show fullscreen submitting overlay
         var overlay = document.getElementById('submitting-overlay');
         if (overlay) {
             overlay.classList.remove('hidden');
-            console.log('[Submit] Submitting overlay shown');
         }
         
-        // 3. Disable ALL answer radio buttons (prevent clicking)
+        // Disable ALL answer radio buttons
         document.querySelectorAll('.answer-radio-input').forEach(function(input) {
             input.disabled = true;
         });
-        console.log('[Submit] All radio inputs disabled');
         
-        // 4. Disable ALL answer option labels (visual feedback)
+        // Disable ALL answer option labels
         document.querySelectorAll('.answer-option').forEach(function(label) {
             label.style.pointerEvents = 'none';
             label.style.opacity = '0.5';
         });
-        console.log('[Submit] All answer labels disabled');
         
-        // 5. Disable ALL navigation buttons
+        // Disable ALL navigation buttons
         document.querySelectorAll('.nav-prev-btn, .nav-next-btn, .nav-dot-btn').forEach(function(btn) {
             btn.disabled = true;
             btn.style.pointerEvents = 'none';
             btn.style.opacity = '0.5';
         });
-        console.log('[Submit] All navigation buttons disabled');
         
-        // 6. Disable submit buttons
+        // Disable submit buttons
         var submitBtns = document.querySelectorAll('#btn-submit-exam, #btn-submit-sticky');
         submitBtns.forEach(function(btn) {
             btn.disabled = true;
             btn.style.pointerEvents = 'none';
         });
-        console.log('[Submit] Submit buttons disabled');
         
-        // 7. Close modal
+        // Close modal
         closeModal();
         
-        // 8. Prevent page unload (back button, refresh)
+        // Prevent page unload (back button, refresh)
         window.onbeforeunload = function() {
             return 'Ujian sedang dikumpulkan! Jangan tutup halaman ini.';
         };
-        console.log('[Submit] Page unload warning set');
         
-        // 9. Disable questions container (extra security)
+        // Disable questions container (extra security)
         var questionsContainer = document.getElementById('questions-container');
         if (questionsContainer) {
             questionsContainer.style.pointerEvents = 'none';
             questionsContainer.style.opacity = '0.3';
         }
-        
-        console.log('[Submit] ✅ UI FULLY LOCKED - Student cannot interact anymore');
     }
 
     function goToQuestion(index) {
@@ -459,7 +527,6 @@
     function selectAnswer(questionId, option, questionIndex) {
         // Prevent interaction if exam ended or submitting
         if (examEnded) {
-            console.log('[Answer] Blocked: Exam ended or submitting');
             return;
         }
         
@@ -488,25 +555,70 @@
         }
         updateAnsweredCount();
 
-        // Auto-save via AJAX (skip if exam ended/submitting)
+        // Auto-save via AJAX with debounce and retry (skip if exam ended/submitting)
         if (examEnded) {
-            console.log('[Auto-Save] Blocked: Exam ended or submitting');
             return;
         }
+
+        // Debounce: cancel previous pending save for same question
+        if (window._saveTimers && window._saveTimers[questionId]) {
+            clearTimeout(window._saveTimers[questionId]);
+        }
+        if (!window._saveTimers) window._saveTimers = {};
+        if (!window._saveRetry) window._saveRetry = {};
         
-        fetch('/student/exam/' + EXAM_ID + '/save-answer', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': CSRF_TOKEN,
-                'Accept': 'application/json',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({
+        // Show saving indicator
+        showSaveStatus('saving');
+        
+        // Backup to localStorage immediately
+        try {
+            var localAnswers = JSON.parse(localStorage.getItem('exam_' + EXAM_ID + '_answers') || '{}');
+            localAnswers[questionId] = option;
+            localStorage.setItem('exam_' + EXAM_ID + '_answers', JSON.stringify(localAnswers));
+        } catch (e) {
+            // Silent fail
+        }
+        
+        window._saveTimers[questionId] = setTimeout(function() {
+            delete window._saveTimers[questionId];
+            
+            var saveUrl = '/student/exam/' + EXAM_ID + '/save-answer';
+            var saveData = {
                 question_id: questionId,
                 selected_answer: option,
-            })
-        }).catch(function(err) { console.error('Auto-save failed:', err); });
+            };
+            
+            function doSave(attempt) {
+                fetch(saveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': CSRF_TOKEN,
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(saveData)
+                }).then(function(res) {
+                    if (res.ok) {
+                        return res.json();
+                    } else {
+                        return res.text().then(function(text) {
+                            throw new Error('HTTP ' + res.status);
+                        });
+                    }
+                }).then(function(data) {
+                    showSaveStatus('saved');
+                }).catch(function(err) {
+                    if (attempt < 3) {
+                        setTimeout(function() { doSave(attempt + 1); }, 1000);
+                    } else {
+                        showSaveStatus('error');
+                    }
+                });
+            }
+            
+            doSave(1);
+        }, 300); // 300ms debounce
     }
 
     function confirmSubmit() {
@@ -533,7 +645,6 @@
     // Auto-submit (form POST)
     function autoSubmitExam() {
         if (examEnded) return;
-        console.log('[Auto-Submit] Time\'s up - auto-submitting exam');
         examEnded = true;
         lockUIForSubmission();
         
@@ -588,9 +699,15 @@
 
     // ============================================
     // POLL FOR ADMIN FORCE-STOP
+    // Uses visibility-aware polling: pauses when tab is hidden
     // ============================================
+    var pollInterval = null;
+
     function pollExamStatus() {
         if (examEnded) return;
+        // Skip polling when tab is hidden (saves requests)
+        if (document.hidden) return;
+
         fetch(POLL_URL, {
             headers: { 'Accept': 'application/json' },
             credentials: 'same-origin'
@@ -623,11 +740,19 @@
                 updateIntegrityUI(data.session_integrity);
             }
         }).catch(function(e) {
-            console.error('Poll status error:', e);
+            // Silent fail for poll errors
         });
     }
 
-    setInterval(pollExamStatus, 3000);
+    // Poll every 8 seconds (balanced between responsiveness and server load)
+    // 100 students × 1 req/8s = 12.5 req/sec (vs 20 req/sec at 5s)
+    pollInterval = setInterval(pollExamStatus, 8000);
+    // Also poll immediately when tab becomes visible again
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && !examEnded) {
+            pollExamStatus();
+        }
+    });
     // ============================================
     // ========== ANTI-CHEAT + GRACE PERIOD =========
     // ============================================
@@ -648,14 +773,9 @@
         // Cooldown: jangan spam pelanggaran sejenis dalam 5 detik
         var now = Date.now();
         if (lastViolationTime[type] && (now - lastViolationTime[type]) < VIOLATION_COOLDOWN_MS) {
-            console.log('[Anti-Cheat] Cooldown active for:', type);
             return;
         }
         lastViolationTime[type] = now;
-
-        console.log('[Anti-Cheat] Reporting violation:', type, 'Duration:', duration, 'Session:', SESSION_ID);
-        console.log('[Anti-Cheat] CSRF Token:', CSRF_TOKEN ? 'Present' : 'MISSING!');
-        console.log('[Anti-Cheat] URL:', LOG_URL);
 
         fetch(LOG_URL, {
             method: 'POST',
@@ -671,17 +791,14 @@
                 duration: Math.round(duration)
             })
         }).then(function(res) {
-            console.log('[Anti-Cheat] Response status:', res.status, res.statusText);
             if (!res.ok) {
                 return res.text().then(function(text) {
-                    console.error('[Anti-Cheat] Error response:', text);
                     throw new Error('HTTP ' + res.status + ': ' + text);
                 });
             }
             return res.json();
         }).then(function(data) {
             if (data) {
-                console.log('[Anti-Cheat] Success:', data);
                 updateIntegrityUI(data.current_integrity);
                 showWarning(type, data.penalty_applied || 0);
 
@@ -692,14 +809,7 @@
                 }
             }
         }).catch(function(e) {
-            console.error('[Anti-Cheat] Failed to report violation:', e);
-            console.error('[Anti-Cheat] Error details:', {
-                type: type,
-                duration: duration,
-                session: SESSION_ID,
-                url: LOG_URL,
-                csrf: CSRF_TOKEN ? 'present' : 'missing'
-            });
+            // Silent fail - violation reporting non-critical
         });
     }
 
@@ -789,8 +899,12 @@
         document.getElementById('questions-container').style.pointerEvents = 'none';
         document.getElementById('questions-container').style.opacity = '0.2';
 
-        // Poll setiap 3 detik untuk cek apakah admin sudah reinstate
+        // Stop the main exam polling
+        if (pollInterval) clearInterval(pollInterval);
+
+        // Single combined check every 5 seconds (instead of 2 separate fetches every 3s)
         var reinstateInterval = setInterval(function() {
+            // Single fetch to poll-status which already includes session status
             fetch(POLL_URL, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin'
@@ -798,27 +912,22 @@
                 if (res.ok) return res.json();
             }).then(function(data) {
                 if (!data) return;
+                
+                // Exam finished — redirect to results
                 if (data.exam_status === 'finished') {
                     clearInterval(reinstateInterval);
                     window.location.href = RESULT_URL;
+                    return;
                 }
-            }).catch(function(e) {});
-
-            // Cek session status via integrity endpoint
-            fetch('/student/integrity/status/' + SESSION_ID, {
-                headers: { 'Accept': 'application/json' },
-                credentials: 'same-origin'
-            }).then(function(res) {
-                if (res.ok) return res.json();
-            }).then(function(data) {
-                if (data && data.score_integrity > 0) {
-                    // Admin sudah reinstate! Tampilkan notifikasi hijau
+                
+                // Admin reinstated — session is back to ongoing
+                if (data.session_status === 'ongoing' && data.session_integrity > 0) {
                     clearInterval(reinstateInterval);
                     document.getElementById('terminated-waiting').classList.add('hidden');
                     document.getElementById('terminated-reinstated').classList.remove('hidden');
                 }
             }).catch(function(e) {});
-        }, 3000);
+        }, 5000);
     }
 
     // =============================================

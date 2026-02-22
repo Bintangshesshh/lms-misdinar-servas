@@ -112,6 +112,8 @@
 
     function startPolling() {
         polling = setInterval(async () => {
+            // Skip polling when tab is hidden
+            if (document.hidden) return;
             try {
                 const res = await fetch(pollUrl);
                 const data = await res.json();
@@ -123,7 +125,7 @@
             } catch (e) {
                 console.error('Poll error:', e);
             }
-        }, 2000); // Poll every 2 seconds
+        }, 3000); // Poll every 3 seconds (balanced: responsive enough for countdown detection)
     }
 
     function startCountdown() {

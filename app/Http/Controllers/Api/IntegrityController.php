@@ -5,6 +5,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ExamSession;
 use App\Models\CheatLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class IntegrityController extends Controller
 {
@@ -14,23 +16,26 @@ class IntegrityController extends Controller
         $request->validate([
             'session_id' => 'required|exists:exam_sessions,id',
             'type'       => 'required|string|in:tab_switch,split_screen,window_blur,device_offline,screenshot',
-            'duration'   => 'required|integer|min:0' // Durasi dalam detik
+            'duration'   => 'required|integer|min:0'
         ]);
 
-        $session = ExamSession::findOrFail($request->session_id);
+        $session = ExamSession::select('id', 'user_id', 'status', 'score_integrity')
+            ->findOrFail($request->session_id);
 
-        // Cek status sesi (kalau sudah selesai, tolak log)
+        // Authorization: only the session owner can log violations
+        if ($session->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Cek status sesi
         if ($session->status !== 'ongoing') {
             return response()->json(['message' => 'Session closed'], 400);
         }
 
-        // 2. HITUNG HUKUMAN (PENALTY LOGIC)
-        // Setiap pelanggaran langsung -30 poin, tanpa grace period
+        // 2. HITUNG HUKUMAN
         $penalty = 30;
-        $duration = $request->duration;
 
-        // 3. Update Score Integritas di Database
-        // Score tidak boleh minus (max 0)
+        // 3. Update Score Integritas
         $newScore = max(0, $session->score_integrity - $penalty);
         $session->update(['score_integrity' => $newScore]);
 
@@ -38,7 +43,7 @@ class IntegrityController extends Controller
         CheatLog::create([
             'exam_session_id' => $session->id,
             'violation_type'  => $request->type,
-            'duration_seconds' => $duration,
+            'duration_seconds' => $request->duration,
             'occurred_at'     => now()
         ]);
 
@@ -49,7 +54,9 @@ class IntegrityController extends Controller
             $terminated = true;
         }
 
-        // 6. Kembalikan sisa skor ke frontend
+        // Clear poll cache so admin sees updated integrity immediately
+        Cache::forget("exam.{$session->exam_id}.lobby_status");
+
         return response()->json([
             'status' => 'logged',
             'penalty_applied' => $penalty,
@@ -60,10 +67,16 @@ class IntegrityController extends Controller
 
     public function getStatus($session_id)
     {
-        $session = ExamSession::findOrFail($session_id);
+        $session = ExamSession::select('id', 'user_id', 'exam_id', 'score_integrity', 'status')
+            ->findOrFail($session_id);
+
         return response()->json([
             'score_integrity' => $session->score_integrity,
-            'violation_count' => $session->cheatLogs()->count(),
+            'violation_count' => Cache::remember(
+                "session.{$session_id}.violation_count",
+                10,
+                fn() => $session->cheatLogs()->count()
+            ),
             'status' => $session->status,
         ]);
     }

@@ -28,4 +28,12 @@ class ExamSession extends Model
     {
         return $this->hasMany(CheatLog::class);
     }
+
+    /**
+     * Get all student answers for this session.
+     */
+    public function answers()
+    {
+        return $this->hasMany(StudentAnswer::class);
+    }
 }

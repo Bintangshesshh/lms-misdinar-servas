@@ -25,6 +25,16 @@
                 </span>
             </div>
 
+            {{-- Table Header --}}
+            <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 hidden md:grid md:grid-cols-12 gap-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <div class="col-span-3">Nama Siswa</div>
+                <div class="col-span-2 text-center">Progress</div>
+                <div class="col-span-2 text-center">Skor Saat Ini</div>
+                <div class="col-span-2 text-center">Integrity</div>
+                <div class="col-span-2 text-center">Waktu Tersisa</div>
+                <div class="col-span-1 text-center">Aksi</div>
+            </div>
+
             <div class="divide-y divide-gray-200" id="student-list">
                 <div class="px-6 py-12 text-center text-gray-400" id="empty-state">
                     <svg class="mx-auto h-10 w-10 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -104,6 +114,28 @@
             <div class="mb-6 bg-gray-50 rounded-lg p-4 text-center">
                 <p class="text-3xl font-black text-indigo-600" id="big-counter">0</p>
                 <p class="text-sm text-gray-500 mt-1">Total Siswa</p>
+            </div>
+
+            {{-- Performance Stats (only during exam) --}}
+            <div id="performance-stats" class="mb-6 space-y-3 hidden">
+                <div class="bg-blue-50 rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-blue-700 font-medium">Rata-rata Skor</span>
+                        <span class="text-lg font-black text-blue-600" id="avg-score">0</span>
+                    </div>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-purple-700 font-medium">Rata-rata Progress</span>
+                        <span class="text-lg font-black text-purple-600" id="avg-progress">0%</span>
+                    </div>
+                </div>
+                <div class="bg-emerald-50 rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-emerald-700 font-medium">Skor Tertinggi</span>
+                        <span class="text-lg font-black text-emerald-600" id="max-score">0</span>
+                    </div>
+                </div>
             </div>
 
             {{-- Quick Edit Soal --}}
@@ -203,41 +235,125 @@
         const level = getStatusLevel(student.integrity, student.status);
         const cfg = getStatusConfig(level);
 
+        // Get total questions from cached data
+        const totalQuestions = window.examTotalQuestions || 10;
+
+        // Calculate progress percentage
+        const progressPercent = totalQuestions > 0 
+            ? Math.round((student.answered / totalQuestions) * 100) 
+            : 0;
+
+        // Format time remaining
+        let timeDisplay = '-';
+        if (student.time_remaining !== null && student.time_remaining >= 0) {
+            const mins = Math.floor(student.time_remaining / 60);
+            const secs = student.time_remaining % 60;
+            timeDisplay = `${mins}:${secs.toString().padStart(2, '0')}`;
+            
+            // Color coding for time
+            if (student.time_remaining < 60) {
+                timeDisplay = `<span class="text-red-600 font-bold animate-pulse">${timeDisplay}</span>`;
+            } else if (student.time_remaining < 300) {
+                timeDisplay = `<span class="text-orange-600 font-semibold">${timeDisplay}</span>`;
+            } else {
+                timeDisplay = `<span class="text-gray-700">${timeDisplay}</span>`;
+            }
+        }
+
+        // Score color coding
+        let scoreColor = 'text-gray-700';
+        if (student.current_score >= 80) scoreColor = 'text-green-600 font-bold';
+        else if (student.current_score >= 60) scoreColor = 'text-blue-600 font-semibold';
+        else if (student.current_score >= 40) scoreColor = 'text-orange-600';
+        else if (student.answered > 0) scoreColor = 'text-red-600';
+
         const actionBtn = level === 'terminated'
             ? `<button onclick="reinstateStudent(${student.session_id})"
-                 class="px-3 py-1.5 text-xs font-medium bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors">
-                 Izinkan Kembali
+                 class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors whitespace-nowrap">
+                 Izinkan
                </button>`
             : (level === 'danger'
                 ? `<button onclick="terminateStudent(${student.session_id})"
-                     class="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors">
+                     class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors whitespace-nowrap">
                      Terminate
                    </button>`
                 : '');
 
-        return `
-            <div class="px-6 py-4 flex items-center justify-between ${level === 'terminated' ? 'bg-gray-50 opacity-75' : ''}">
-                <div class="flex items-center gap-3">
-                    <div class="relative">
-                        <div class="w-10 h-10 ${cfg.bg} bg-opacity-20 rounded-full flex items-center justify-center ring-2 ${cfg.ring}">
-                            <span class="${cfg.text} font-bold text-sm">${student.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                    </div>
+        // Mobile-friendly compact view
+        const mobileView = `
+            <div class="md:hidden px-4 py-3 ${level === 'terminated' ? 'bg-gray-50 opacity-75' : ''}">
+                <div class="flex items-start justify-between mb-2">
                     <div>
                         <p class="font-medium text-gray-900 ${level === 'terminated' ? 'line-through' : ''}">${student.name}</p>
-                        <p class="text-sm text-gray-500">${student.email}</p>
+                        <p class="text-xs text-gray-500">${student.email}</p>
+                    </div>
+                    <span class="px-2 py-0.5 text-xs font-bold rounded-full ${cfg.badge}">
+                        ${level === 'terminated' ? 'TERM' : student.integrity + '%'}
+                    </span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-xs">
+                    <div class="text-center">
+                        <p class="text-gray-500">Progress</p>
+                        <p class="font-semibold">${student.answered}/${totalQuestions}</p>
+                        <p class="text-green-600 text-xs">${student.correct || 0} benar</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-gray-500">Skor</p>
+                        <p class="font-semibold ${scoreColor}">${student.current_score.toFixed(1)}</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-gray-500">Waktu</p>
+                        <p class="font-semibold">${timeDisplay}</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    ${cfg.label ? `<span class="text-sm font-semibold">${cfg.label}</span>` : ''}
+                ${actionBtn ? `<div class="mt-2">${actionBtn}</div>` : ''}
+            </div>
+        `;
+
+        // Desktop table view
+        const desktopView = `
+            <div class="hidden md:grid md:grid-cols-12 gap-3 px-6 py-3 items-center ${level === 'terminated' ? 'bg-gray-50 opacity-75' : ''}">
+                <div class="col-span-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 ${cfg.bg} bg-opacity-20 rounded-full flex items-center justify-center ring-2 ${cfg.ring} flex-shrink-0">
+                            <span class="${cfg.text} font-bold text-xs">${student.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-medium text-sm text-gray-900 truncate ${level === 'terminated' ? 'line-through' : ''}">${student.name}</p>
+                            <p class="text-xs text-gray-500 truncate">${student.email}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-span-2 text-center">
+                    <div class="flex flex-col items-center">
+                        <span class="text-sm font-semibold text-gray-900">${student.answered}/${totalQuestions}</span>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                            <div class="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <span class="text-xs text-green-600 mt-0.5">${student.correct || 0} benar</span>
+                    </div>
+                </div>
+                <div class="col-span-2 text-center">
+                    <div class="flex flex-col items-center">
+                        <span class="text-lg font-bold ${scoreColor}">${student.current_score.toFixed(1)}</span>
+                        <span class="text-xs text-gray-500">dari 100</span>
+                    </div>
+                </div>
+                <div class="col-span-2 text-center">
                     <span class="px-2.5 py-1 text-xs font-bold rounded-full ${cfg.badge}">
-                        ${level === 'terminated' ? 'TERMINATED' : student.integrity + '%'}
+                        ${level === 'terminated' ? 'TERM' : student.integrity + '%'}
                     </span>
-                    <span class="text-xs text-gray-400">${student.joined_at}</span>
+                </div>
+                <div class="col-span-2 text-center">
+                    <span class="text-sm font-mono">${timeDisplay}</span>
+                </div>
+                <div class="col-span-1 text-center">
                     ${actionBtn}
                 </div>
             </div>
         `;
+
+        return mobileView + desktopView;
     }
 
     async function terminateStudent(sessionId) {
@@ -267,22 +383,49 @@
             const res = await fetch(lobbyUrl);
             const data = await res.json();
 
+            // Cache total questions
+            if (data.total_questions) {
+                window.examTotalQuestions = data.total_questions;
+            }
+
             document.getElementById('student-count').textContent = data.student_count;
             document.getElementById('big-counter').textContent = data.student_count;
 
             let safe = 0, warning = 0, danger = 0, terminated = 0;
+            let totalScore = 0, totalProgress = 0, maxScore = 0;
+            let activeStudents = 0;
+
             data.students.forEach(s => {
                 const level = getStatusLevel(s.integrity, s.status);
                 if (level === 'safe') safe++;
                 else if (level === 'warning') warning++;
                 else if (level === 'danger') danger++;
                 else if (level === 'terminated') terminated++;
+
+                // Calculate stats for active students only
+                if (s.status === 'ongoing') {
+                    totalScore += s.current_score;
+                    totalProgress += (s.answered / data.total_questions) * 100;
+                    maxScore = Math.max(maxScore, s.current_score);
+                    activeStudents++;
+                }
             });
 
             document.getElementById('safe-counter').textContent = safe;
             document.getElementById('warning-counter').textContent = warning;
             document.getElementById('danger-counter').textContent = danger;
             document.getElementById('terminated-counter').textContent = terminated;
+
+            // Update performance stats (show only during exam)
+            const statsPanel = document.getElementById('performance-stats');
+            if (data.exam_status === 'started' && activeStudents > 0) {
+                statsPanel.classList.remove('hidden');
+                document.getElementById('avg-score').textContent = (totalScore / activeStudents).toFixed(1);
+                document.getElementById('avg-progress').textContent = Math.round(totalProgress / activeStudents) + '%';
+                document.getElementById('max-score').textContent = maxScore.toFixed(1);
+            } else {
+                statsPanel.classList.add('hidden');
+            }
 
             const listEl = document.getElementById('student-list');
             const emptyEl = document.getElementById('empty-state');
@@ -297,6 +440,9 @@
     }
 
     pollLobby();
-    setInterval(pollLobby, 2000);
+    // Poll every 1.5s for real-time monitoring, skip when tab is hidden
+    setInterval(function() {
+        if (!document.hidden) pollLobby();
+    }, 1500);
 </script>
 @endsection

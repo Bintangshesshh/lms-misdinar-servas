@@ -33,6 +33,7 @@ class AdminDashboardController extends Controller
         // Clear caches when exam status changes
         Cache::forget('admin.exams.list');
         Cache::forget("exam.{$exam->id}.lobby_status");
+        Cache::forget("exam.{$exam->id}.poll_status");
         
         return back()->with('success', 'Lobby dibuka! Siswa sekarang bisa join.');
     }
@@ -51,44 +52,82 @@ class AdminDashboardController extends Controller
             // Clear caches after status change
             Cache::forget('admin.exams.list');
             Cache::forget("exam.{$exam->id}.lobby_status");
+            Cache::forget("exam.{$exam->id}.poll_status");
         })->afterResponse();
 
         // Clear caches immediately for countdown
         Cache::forget('admin.exams.list');
         Cache::forget("exam.{$exam->id}.lobby_status");
+        Cache::forget("exam.{$exam->id}.poll_status");
 
         return back()->with('success', 'Countdown dimulai! Ujian akan dimulai dalam 5 detik.');
     }
 
     /**
-     * JSON endpoint for admin polling — includes session status for monitoring.
+     * JSON endpoint for admin polling — optimized for 100+ concurrent students.
+     * Shows REAL-TIME progress and estimated score.
      */
     public function lobbyStatus(Exam $exam)
     {
-        // Cache lobby status for 2 seconds (frequent polling endpoint)
-        $cacheKey = "exam.{$exam->id}.lobby_status";
-        
-        $data = Cache::remember($cacheKey, 2, function () use ($exam) {
-            $students = $exam->sessions()
-                ->whereNotNull('joined_at')
-                ->with('user:id,name,email')
-                ->get()
-                ->map(fn($s) => [
-                    'id' => $s->user->id,
-                    'session_id' => $s->id,
-                    'name' => $s->user->name,
-                    'email' => $s->user->email,
-                    'joined_at' => $s->joined_at->diffForHumans(),
-                    'integrity' => $s->score_integrity,
-                    'status' => $s->status,
-                ]);
-
-            return [
-                'exam_status' => $exam->status,
-                'student_count' => $students->count(),
-                'students' => $students,
-            ];
+        // Cache total questions (doesn't change during exam)
+        $totalQuestions = Cache::remember("exam.{$exam->id}.total_questions", 600, function () use ($exam) {
+            return $exam->questions()->count();
         });
+
+        // Cache total points for score calculation
+        $totalPoints = Cache::remember("exam.{$exam->id}.total_points", 600, function () use ($exam) {
+            return $exam->questions()->sum('points') ?: $exam->questions()->count();
+        });
+
+        $students = $exam->sessions()
+            ->whereNotNull('joined_at')
+            ->select('id', 'exam_id', 'user_id', 'joined_at', 'score_integrity', 'score_academic', 'status')
+            ->with([
+                'user:id,name,email',
+                'answers:id,exam_session_id,is_correct,question_id'
+            ])
+            ->get()
+            ->map(function($session) use ($exam, $totalQuestions, $totalPoints) {
+                $answeredCount = $session->answers->count();
+                $correctCount = $session->answers->where('is_correct', true)->count();
+                
+                // Real-time score estimate (during exam) or final score (after completion)
+                if ($session->status === 'completed' && $session->score_academic !== null) {
+                    $currentScore = $session->score_academic;
+                } else {
+                    // Calculate real-time score estimate
+                    $currentScore = $totalPoints > 0 ? round(($correctCount / $totalQuestions) * 100, 1) : 0;
+                }
+
+                $timeRemaining = null;
+                if ($exam->status === 'started' && $exam->started_at && $session->status === 'ongoing') {
+                    $endTime = $exam->started_at->addMinutes($exam->duration_minutes);
+                    $remaining = now()->diffInSeconds($endTime, false);
+                    $timeRemaining = max(0, $remaining);
+                }
+
+                return [
+                    'id' => $session->user->id,
+                    'session_id' => $session->id,
+                    'name' => $session->user->name,
+                    'email' => $session->user->email,
+                    'joined_at' => $session->joined_at->diffForHumans(),
+                    'integrity' => $session->score_integrity,
+                    'status' => $session->status,
+                    'current_score' => $currentScore,
+                    'answered' => $answeredCount,
+                    'correct' => $correctCount,
+                    'time_remaining' => $timeRemaining,
+                ];
+            });
+
+        $data = [
+            'exam_status' => $exam->status,
+            'student_count' => $students->count(),
+            'students' => $students,
+            'total_questions' => $totalQuestions,
+            'exam_duration' => $exam->duration_minutes,
+        ];
 
         return response()->json($data);
     }
@@ -105,6 +144,10 @@ class AdminDashboardController extends Controller
             ->firstOrFail();
 
         $session->update(['status' => 'blocked']);
+
+        // Clear caches so admin monitor and student poll see updated status immediately
+        Cache::forget("exam.{$exam->id}.lobby_status");
+        Cache::forget("exam.{$exam->id}.poll_status");
 
         return response()->json(['success' => true, 'message' => 'Siswa telah di-terminate.']);
     }
@@ -125,6 +168,10 @@ class AdminDashboardController extends Controller
             'score_integrity' => 60, // Reinstate dengan 60 poin, bukan 100
         ]);
 
+        // Clear caches
+        Cache::forget("exam.{$exam->id}.lobby_status");
+        Cache::forget("exam.{$exam->id}.poll_status");
+
         return response()->json(['success' => true, 'message' => 'Siswa diizinkan melanjutkan dengan 60 poin integritas.']);
     }
 
@@ -138,37 +185,48 @@ class AdminDashboardController extends Controller
      * @param Request $request
      * @param Exam    $exam
      */
+    /**
+     * Stop an exam and finalize all ongoing sessions.
+     * Optimized: loads questions once, bulk-loads answers, uses transactions.
+     */
     public function stopExam(Request $request, Exam $exam)
     {
-        // Update exam status to finished
-        $exam->update(['status' => 'finished']);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($exam) {
+            // Update exam status to finished
+            $exam->update(['status' => 'finished']);
 
-        // Auto-complete all ongoing sessions
-        $ongoingSessions = ExamSession::where('exam_id', $exam->id)
-            ->where('status', 'ongoing')
-            ->get();
+            // Load questions once
+            $questions = $exam->questions;
+            $totalPoints = $questions->sum('points');
 
-        $questions = $exam->questions;
-        $totalPoints = $questions->sum('points');
+            // Get all ongoing sessions with their answers in ONE query
+            $ongoingSessions = ExamSession::where('exam_id', $exam->id)
+                ->where('status', 'ongoing')
+                ->with('answers')
+                ->get();
 
-        /** @var ExamSession $session */
-        foreach ($ongoingSessions as $session) {
-            $earnedPoints = 0;
-            $answers = \App\Models\StudentAnswer::where('exam_session_id', $session->id)->get();
-            foreach ($answers as $answer) {
-                if ($answer->is_correct) {
-                    $question = $questions->firstWhere('id', $answer->question_id);
-                    if ($question) $earnedPoints += $question->points;
+            foreach ($ongoingSessions as $session) {
+                $earnedPoints = 0;
+                foreach ($session->answers as $answer) {
+                    if ($answer->is_correct) {
+                        $question = $questions->firstWhere('id', $answer->question_id);
+                        if ($question) $earnedPoints += $question->points;
+                    }
                 }
-            }
-            $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
+                $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
 
-            $session->update([
-                'score_academic' => $academicScore,
-                'status' => 'completed',
-                'end_time' => now(),
-            ]);
-        }
+                $session->update([
+                    'score_academic' => $academicScore,
+                    'status' => 'completed',
+                    'end_time' => now(),
+                ]);
+            }
+        });
+
+        // Clear caches
+        Cache::forget("exam.{$exam->id}.lobby_status");
+        Cache::forget("exam.{$exam->id}.poll_status");
+        Cache::forget('admin.exams.list');
 
         return back()->with('success', 'Ujian dihentikan! Semua jawaban siswa telah disimpan dan dinilai.');
     }
@@ -246,19 +304,32 @@ class AdminDashboardController extends Controller
     /**
      * Reset exam back to draft so it can be reused.
      */
+    /**
+     * Reset exam back to draft so it can be reused.
+     * Optimized: bulk delete using whereIn instead of N+1 loops.
+     */
     public function resetExam(Exam $exam)
     {
-        // Delete all sessions and answers
-        foreach ($exam->sessions as $session) {
-            \App\Models\StudentAnswer::where('exam_session_id', $session->id)->delete();
-            \App\Models\CheatLog::where('exam_session_id', $session->id)->delete();
-        }
-        $exam->sessions()->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($exam) {
+            $sessionIds = $exam->sessions()->pluck('id');
+            
+            // Bulk delete all related data
+            \App\Models\StudentAnswer::whereIn('exam_session_id', $sessionIds)->delete();
+            \App\Models\CheatLog::whereIn('exam_session_id', $sessionIds)->delete();
+            $exam->sessions()->delete();
 
-        $exam->update([
-            'status' => 'draft',
-            'started_at' => null,
-        ]);
+            $exam->update([
+                'status' => 'draft',
+                'started_at' => null,
+            ]);
+        });
+
+        // Clear caches
+        Cache::forget("exam.{$exam->id}.lobby_status");
+        Cache::forget("exam.{$exam->id}.poll_status");
+        Cache::forget("exam.{$exam->id}.questions");
+        Cache::forget("exam.{$exam->id}.total_questions");
+        Cache::forget('admin.exams.list');
 
         return back()->with('success', 'Ujian "' . $exam->title . '" telah di-reset ke Draft.');
     }

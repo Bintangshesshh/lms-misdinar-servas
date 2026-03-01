@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -14,6 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $kelas
  * @property int|null $umur
  * @property string|null $lingkungan
+ * @property string|null $asal_sekolah
  * @property string $email
  * @property string $role
  * @method bool isAdmin()
@@ -21,7 +21,7 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -34,6 +34,7 @@ class User extends Authenticatable
         'kelas',
         'umur',
         'lingkungan',
+        'asal_sekolah',
         'email',
         'password',
         'role',

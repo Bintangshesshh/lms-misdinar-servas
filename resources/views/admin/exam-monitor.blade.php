@@ -4,9 +4,7 @@
 
 @section('content')
 <div id="monitor-data"
-     data-lobby-url="{{ route('admin.exam.lobbyStatus', $exam) }}"
-     data-terminate-url="{{ route('admin.exam.terminateStudent', $exam) }}"
-     data-reinstate-url="{{ route('admin.exam.reinstateStudent', $exam) }}"
+     data-exam-id="{{ $exam->id }}"
      data-csrf="{{ csrf_token() }}">
 </div>
 
@@ -64,6 +62,16 @@
                 <div class="flex items-center gap-2">
                     <span class="w-4 h-4 rounded-full bg-gray-800"></span>
                     <span class="text-gray-600">TERMINATED</span>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-gray-100">
+                <p class="text-xs font-semibold text-gray-500 uppercase mb-2">Jenis Pelanggaran</p>
+                <div class="flex flex-wrap gap-2 text-xs text-gray-500">
+                    <span class="px-2 py-1 bg-gray-100 rounded">Tab Switch (-25)</span>
+                    <span class="px-2 py-1 bg-gray-100 rounded">Fullscreen Exit (-20)</span>
+                    <span class="px-2 py-1 bg-gray-100 rounded">Split Screen (-20)</span>
+                    <span class="px-2 py-1 bg-gray-100 rounded">Resize (-15)</span>
+                    <span class="px-2 py-1 bg-gray-100 rounded">Screenshot (-30)</span>
                 </div>
             </div>
         </div>
@@ -206,10 +214,18 @@
 
 <script>
     const monitorData = document.getElementById('monitor-data');
-    const lobbyUrl = monitorData.dataset.lobbyUrl;
-    const terminateUrl = monitorData.dataset.terminateUrl;
-    const reinstateUrl = monitorData.dataset.reinstateUrl;
     const csrfToken = monitorData.dataset.csrf;
+    const EXAM_ID = monitorData.dataset.examId;
+
+    // Compute base path from current URL so it works on any domain/subdirectory
+    var BASE_PATH = (function() {
+        var path = window.location.pathname;
+        var match = path.match(/(.*)?\/admin\//);
+        return match ? match[1] : '';
+    })();
+    const lobbyUrl = BASE_PATH + '/admin/exam/' + EXAM_ID + '/lobby-status';
+    const terminateUrl = BASE_PATH + '/admin/exam/' + EXAM_ID + '/terminate-student';
+    const reinstateUrl = BASE_PATH + '/admin/exam/' + EXAM_ID + '/reinstate-student';
 
     function getStatusLevel(integrity, status) {
         if (status === 'blocked') return 'terminated';
@@ -247,7 +263,7 @@
         let timeDisplay = '-';
         if (student.time_remaining !== null && student.time_remaining >= 0) {
             const mins = Math.floor(student.time_remaining / 60);
-            const secs = student.time_remaining % 60;
+            const secs = Math.floor(student.time_remaining % 60);
             timeDisplay = `${mins}:${secs.toString().padStart(2, '0')}`;
             
             // Color coding for time

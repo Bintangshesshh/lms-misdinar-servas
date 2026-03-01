@@ -5,9 +5,7 @@
 <div class="max-w-2xl mx-auto">
     <div id="lobby-data"
          data-exam-id="{{ $exam->id }}"
-         data-session-id="{{ $session->id }}"
-         data-poll-url="{{ route('exam.pollStatus', $exam) }}"
-         data-exam-url="{{ route('student.exam.take', $exam) }}">
+         data-session-id="{{ $session->id }}">
     </div>
 
     {{-- Exam Info Card --}}
@@ -37,6 +35,10 @@
                 <li class="flex items-start gap-3">
                     <span class="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-bold">✓</span>
                     <span class="text-gray-700"><strong>Skor integritas dimulai dari 100.</strong> Pelanggaran mengurangi skor secara otomatis.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">⤢</span>
+                    <span class="text-gray-700"><strong>Mode fullscreen otomatis aktif.</strong> Keluar dari fullscreen tercatat sebagai pelanggaran.</span>
                 </li>
             </ul>
         </div>
@@ -89,13 +91,27 @@
                 </div>
             </div>
 
-            {{-- Countdown State (Hidden by default) --}}
+            {{-- Countdown/Starting State (Hidden by default) --}}
             <div id="countdown-state" class="hidden">
-                <div class="inline-flex items-center justify-center w-32 h-32 bg-indigo-100 rounded-full mb-4">
-                    <span id="countdown-number" class="text-6xl font-black text-indigo-600">5</span>
+                <div class="relative inline-flex items-center justify-center w-32 h-32 mb-6">
+                    {{-- Outer spinning ring --}}
+                    <svg class="absolute inset-0 w-32 h-32 animate-spin" style="animation-duration:1.2s" viewBox="0 0 128 128" fill="none">
+                        <circle cx="64" cy="64" r="58" stroke="#E0E7FF" stroke-width="8"/>
+                        <path d="M64 6 A58 58 0 0 1 122 64" stroke="#4F46E5" stroke-width="8" stroke-linecap="round"/>
+                    </svg>
+                    {{-- Inner pulsing ring --}}
+                    <svg class="absolute inset-0 w-32 h-32 animate-spin" style="animation-duration:2s;animation-direction:reverse" viewBox="0 0 128 128" fill="none">
+                        <path d="M64 18 A46 46 0 0 1 110 64" stroke="#818CF8" stroke-width="5" stroke-linecap="round"/>
+                    </svg>
+                    {{-- Center icon --}}
+                    <div class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </div>
                 </div>
-                <h3 class="text-xl font-semibold text-gray-900">Ujian dimulai dalam...</h3>
-                <p class="mt-2 text-gray-500">Bersiaplah!</p>
+                <h3 class="text-xl font-bold text-gray-900">Ujian sedang dimuat...</h3>
+                <p class="mt-2 text-indigo-600 font-medium animate-pulse">Kamu akan diarahkan otomatis ✦</p>
             </div>
         </div>
     </div>
@@ -105,8 +121,15 @@
     const dataEl = document.getElementById('lobby-data');
     const examId = Number(dataEl.dataset.examId);
     const sessionId = Number(dataEl.dataset.sessionId);
-    const pollUrl = dataEl.dataset.pollUrl;
-    const examUrl = dataEl.dataset.examUrl;
+
+    // Compute base path from current URL so it works on any domain/subdirectory
+    var BASE_PATH = (function() {
+        var path = window.location.pathname;
+        var match = path.match(/(.*)?\/student\//);
+        return match ? match[1] : '';
+    })();
+    const pollUrl = BASE_PATH + '/api/exam/' + examId + '/poll-status';
+    const examUrl = BASE_PATH + '/student/exam/' + examId + '/take';
 
     let polling = null;
 
@@ -132,20 +155,30 @@
         document.getElementById('waiting-state').classList.add('hidden');
         document.getElementById('countdown-state').classList.remove('hidden');
 
-        let count = 5;
-        const numberEl = document.getElementById('countdown-number');
-        numberEl.textContent = count;
-
-        const interval = setInterval(() => {
-            count--;
-            numberEl.textContent = count;
-
-            if (count <= 0) {
-                clearInterval(interval);
-                // Redirect to exam page
-                window.location.href = examUrl;
+        // Try to request fullscreen (user gesture context from poll may not work,
+        // but the exam-take page has a proper user-gesture entry overlay as fallback)
+        var elem = document.documentElement;
+        try {
+            var fsPromise;
+            if (elem.requestFullscreen) {
+                fsPromise = elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.mozRequestFullScreen) {
+                elem.mozRequestFullScreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
             }
-        }, 1000);
+            // Ensure we don't crash on undefined.then()
+            if (fsPromise && typeof fsPromise.catch === 'function') {
+                fsPromise.catch(function(){});
+            }
+        } catch(e) {}
+
+        // Small delay so animation is visible, then redirect
+        setTimeout(() => {
+            window.location.href = examUrl;
+        }, 1500);
     }
 
     // Start polling when page loads

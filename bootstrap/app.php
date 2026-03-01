@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
+        $middleware->trustProxies(at: '*');
+        $middleware->validateCsrfTokens(except: [
+            '*'
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

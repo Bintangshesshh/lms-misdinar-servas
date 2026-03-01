@@ -45,17 +45,10 @@ class AdminDashboardController extends Controller
             'started_at' => now()->addSeconds(5),
         ]);
 
-        dispatch(function () use ($exam) {
-            sleep(5);
-            $exam->update(['status' => 'started']);
-            
-            // Clear caches after status change
-            Cache::forget('admin.exams.list');
-            Cache::forget("exam.{$exam->id}.lobby_status");
-            Cache::forget("exam.{$exam->id}.poll_status");
-        })->afterResponse();
+        // No blocking dispatch needed - isStarted() handles lazy transition
+        // When anyone checks exam status after 5 seconds, it auto-updates to 'started'
 
-        // Clear caches immediately for countdown
+        // Clear caches for countdown
         Cache::forget('admin.exams.list');
         Cache::forget("exam.{$exam->id}.lobby_status");
         Cache::forget("exam.{$exam->id}.poll_status");
@@ -69,6 +62,9 @@ class AdminDashboardController extends Controller
      */
     public function lobbyStatus(Exam $exam)
     {
+        // Trigger lazy countdown → started transition
+        $exam->isStarted();
+
         // Cache total questions (doesn't change during exam)
         $totalQuestions = Cache::remember("exam.{$exam->id}.total_questions", 600, function () use ($exam) {
             return $exam->questions()->count();
@@ -89,7 +85,7 @@ class AdminDashboardController extends Controller
             ->get()
             ->map(function($session) use ($exam, $totalQuestions, $totalPoints) {
                 $answeredCount = $session->answers->count();
-                $correctCount = $session->answers->where('is_correct', true)->count();
+                $correctCount = $session->answers->filter(fn($a) => $a->is_correct)->count();
                 
                 // Real-time score estimate (during exam) or final score (after completion)
                 if ($session->status === 'completed' && $session->score_academic !== null) {
@@ -103,7 +99,7 @@ class AdminDashboardController extends Controller
                 if ($exam->status === 'started' && $exam->started_at && $session->status === 'ongoing') {
                     $endTime = $exam->started_at->addMinutes($exam->duration_minutes);
                     $remaining = now()->diffInSeconds($endTime, false);
-                    $timeRemaining = max(0, $remaining);
+                    $timeRemaining = (int) max(0, $remaining);
                 }
 
                 return [
@@ -181,13 +177,10 @@ class AdminDashboardController extends Controller
      */
     /**
      * Stop an exam and finalize all ongoing sessions.
+     * Optimized: loads questions once, bulk-loads answers, uses transactions.
      *
      * @param Request $request
      * @param Exam    $exam
-     */
-    /**
-     * Stop an exam and finalize all ongoing sessions.
-     * Optimized: loads questions once, bulk-loads answers, uses transactions.
      */
     public function stopExam(Request $request, Exam $exam)
     {
@@ -205,6 +198,7 @@ class AdminDashboardController extends Controller
                 ->with('answers')
                 ->get();
 
+            /** @var ExamSession $session */
             foreach ($ongoingSessions as $session) {
                 $earnedPoints = 0;
                 foreach ($session->answers as $answer) {

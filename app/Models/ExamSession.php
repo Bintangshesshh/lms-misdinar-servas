@@ -4,6 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int $exam_id
+ * @property \Carbon\Carbon|null $start_time
+ * @property \Carbon\Carbon|null $end_time
+ * @property \Carbon\Carbon|null $joined_at
+ * @property float $score_academic
+ * @property float $score_integrity
+ * @property string $status
+ */
 class ExamSession extends Model
 {
     protected $guarded = ['id'];
@@ -12,6 +23,8 @@ class ExamSession extends Model
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'joined_at' => 'datetime',
+        'score_academic' => 'float',
+        'score_integrity' => 'float',
     ];
 
     public function user()

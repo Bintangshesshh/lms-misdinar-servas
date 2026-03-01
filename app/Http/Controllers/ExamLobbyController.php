@@ -8,6 +8,7 @@ use App\Models\StudentAnswer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class ExamLobbyController extends Controller
 {
@@ -17,21 +18,32 @@ class ExamLobbyController extends Controller
             return back()->with('error', 'Lobby belum dibuka oleh Admin.');
         }
 
-        // Check if already joined
-        $session = ExamSession::where('user_id', Auth::id())
-            ->where('exam_id', $exam->id)
-            ->first();
+        // Atomic check-and-create to prevent race condition duplicates
+        $created = false;
+        $session = DB::transaction(function () use ($exam, &$created) {
+            // Lock the exam row to serialize concurrent join requests
+            $exam->lockForUpdate()->first();
 
-        if (!$session) {
-            $session = ExamSession::create([
-                'user_id' => Auth::id(),
-                'exam_id' => $exam->id,
-                'start_time' => now(),
-                'joined_at' => now(),
-                'score_integrity' => 100,
-                'status' => 'ongoing',
-            ]);
+            $session = ExamSession::where('user_id', Auth::id())
+                ->where('exam_id', $exam->id)
+                ->first();
 
+            if (!$session) {
+                $session = ExamSession::create([
+                    'user_id' => Auth::id(),
+                    'exam_id' => $exam->id,
+                    'start_time' => now(),
+                    'joined_at' => now(),
+                    'score_integrity' => 100,
+                    'status' => 'ongoing',
+                ]);
+                $created = true;
+            }
+
+            return $session;
+        });
+
+        if ($created) {
             // Clear admin lobby cache so new student appears immediately
             Cache::forget("exam.{$exam->id}.lobby_status");
         }
@@ -87,7 +99,7 @@ class ExamLobbyController extends Controller
 
     /**
      * Save a single answer (auto-save via AJAX)
-     * Optimized: cached question lookup + cached total count
+     * Optimized with caching + database lock for race condition protection
      */
     public function saveAnswer(Request $request, Exam $exam)
     {
@@ -96,47 +108,68 @@ class ExamLobbyController extends Controller
             'selected_answer' => 'required|in:a,b,c,d',
         ]);
 
-        $session = ExamSession::where('user_id', Auth::id())
-            ->where('exam_id', $exam->id)
-            ->where('status', 'ongoing')
-            ->firstOrFail();
+        $userId = Auth::id();
 
-        // Use cached questions instead of querying each time
-        $questions = Cache::remember(
-            "exam.{$exam->id}.questions",
-            600,
-            fn() => $exam->questions()->get()->keyBy('id')
-        );
+        // Use transaction with lock to prevent race conditions
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $exam, $userId) {
+            $session = ExamSession::where('user_id', $userId)
+                ->where('exam_id', $exam->id)
+                ->where('status', 'ongoing')
+                ->lockForUpdate()
+                ->first();
 
-        $question = $questions->get($request->question_id);
-        if (!$question) {
-            return response()->json(['error' => 'Question not found'], 404);
-        }
+            if (!$session) {
+                return response()->json(['error' => 'Session not found or expired'], 404);
+            }
 
-        $isCorrect = $question->correct_answer === $request->selected_answer;
+            // Use cached questions instead of querying each time
+            $questions = Cache::remember(
+                "exam.{$exam->id}.questions",
+                600,
+                fn() => $exam->questions()->get()->keyBy('id')
+            );
 
-        StudentAnswer::updateOrCreate(
-            [
-                'exam_session_id' => $session->id,
-                'question_id' => $question->id,
-            ],
-            [
-                'selected_answer' => $request->selected_answer,
-                'is_correct' => $isCorrect,
-            ]
-        );
+            $question = $questions->get($request->question_id);
+            if (!$question) {
+                return response()->json(['error' => 'Question not found'], 404);
+            }
 
-        // Use cached total instead of querying
-        $totalQuestions = $questions->count();
-        $answeredCount = StudentAnswer::where('exam_session_id', $session->id)
-            ->whereNotNull('selected_answer')
-            ->count();
+            // Normalize answer to lowercase for consistent comparison
+            $selectedAnswer = strtolower(trim($request->selected_answer));
+            $correctAnswer = strtolower(trim($question->correct_answer));
+            $isCorrect = $correctAnswer === $selectedAnswer;
 
-        return response()->json([
-            'success' => true,
-            'answered' => $answeredCount,
-            'total' => $totalQuestions,
-        ]);
+            // Use firstOrNew + save instead of updateOrCreate for better lock handling
+            $answer = StudentAnswer::where('exam_session_id', $session->id)
+                ->where('question_id', $question->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($answer) {
+                $answer->selected_answer = $selectedAnswer;
+                $answer->is_correct = $isCorrect;
+                $answer->save();
+            } else {
+                $answer = StudentAnswer::create([
+                    'exam_session_id' => $session->id,
+                    'question_id' => $question->id,
+                    'selected_answer' => $selectedAnswer,
+                    'is_correct' => $isCorrect,
+                ]);
+            }
+
+            // Use cached total instead of querying
+            $totalQuestions = $questions->count();
+            $answeredCount = StudentAnswer::where('exam_session_id', $session->id)
+                ->whereNotNull('selected_answer')
+                ->count();
+
+            return response()->json([
+                'success' => true,
+                'answered' => $answeredCount,
+                'total' => $totalQuestions,
+            ]);
+        });
     }
 
     /**
@@ -239,15 +272,17 @@ class ExamLobbyController extends Controller
 
     /**
      * Polling endpoint for students to check exam status.
-     * Cached per-exam for 3 seconds (shared by all students in same exam).
+     * Cached per-exam for 2 seconds (shared by all students in same exam).
      * Student-specific data (session status) checked separately with lightweight query.
      */
     public function pollStatus(Exam $exam)
     {
-        // Cache exam-level data for 3 seconds (shared across ALL students polling same exam)
-        // This means 100 students = 1 query every 3s instead of 100 queries every 5s
-        $examData = Cache::remember("exam.{$exam->id}.poll_status", 3, function () use ($exam) {
+        // Cache exam-level data for 2 seconds (shared across ALL students polling same exam)
+        // This means 100 students = 1 query every 2s instead of 100 queries every 8s
+        $examData = Cache::remember("exam.{$exam->id}.poll_status", 2, function () use ($exam) {
             $exam->refresh();
+            // Trigger lazy countdown → started transition
+            $exam->isStarted();
             return [
                 'exam_status' => $exam->status,
                 'started_at' => $exam->started_at?->toISOString(),

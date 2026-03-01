@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Admin — LMS Misdinar')</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="stylesheet" href="{{ asset('build/assets/app-nBeFMyzn.css') }}">
+    <script src="{{ asset('build/assets/app-CBbTb_k3.js') }}" defer></script>
     <style>
         :root {
             --sidebar-width: 256px;
@@ -179,6 +180,17 @@
                 </svg>
                 <span class="sidebar-text">Kelola Soal</span>
                 <span class="sidebar-tooltip">Kelola Soal</span>
+            </a>
+
+            <a href="{{ route('admin.students.index') }}"
+               class="sidebar-nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                      {{ request()->routeIs('admin.students.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                <svg class="sidebar-icon w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+                <span class="sidebar-text">Kelola Siswa</span>
+                <span class="sidebar-tooltip">Kelola Siswa</span>
             </a>
 
             @if(isset($currentExam))

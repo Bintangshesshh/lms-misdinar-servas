@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Exam;
 use App\Models\Question;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class QuestionController extends Controller
 {
@@ -111,5 +112,92 @@ class QuestionController extends Controller
 
         return redirect()->route('admin.questions.show', $exam)
             ->with('success', "Semua soal diset ke {$request->points} poin!");
+    }
+
+    /**
+     * Show bulk import form.
+     */
+    public function importForm(Exam $exam)
+    {
+        return view('admin.questions.import', compact('exam'));
+    }
+
+    /**
+     * Process bulk import from text input.
+     * Format: question_text,option_a,option_b,option_c,option_d,correct_answer,points (one per line)
+     */
+    public function import(Request $request, Exam $exam)
+    {
+        $request->validate([
+            'data' => 'required|string',
+            'default_points' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $defaultPoints = $request->default_points ?: 10;
+        $lines = array_filter(array_map('trim', explode("\n", $request->data)));
+        
+        $imported = 0;
+        $errors = [];
+        $currentOrder = $exam->questions()->count();
+
+        DB::beginTransaction();
+        try {
+            foreach ($lines as $index => $line) {
+                $lineNum = $index + 1;
+                $parts = array_map('trim', str_getcsv($line));
+                
+                // Minimum: question_text + 4 options + correct_answer
+                if (count($parts) < 6) {
+                    $errors[] = "Baris {$lineNum}: Minimal 6 kolom (soal, opsi_a, opsi_b, opsi_c, opsi_d, jawaban)";
+                    continue;
+                }
+
+                if (empty($parts[0])) {
+                    $errors[] = "Baris {$lineNum}: Teks soal tidak boleh kosong";
+                    continue;
+                }
+
+                $correctAnswer = strtolower(trim($parts[5]));
+                if (!in_array($correctAnswer, ['a', 'b', 'c', 'd'])) {
+                    $errors[] = "Baris {$lineNum}: Jawaban benar harus a, b, c, atau d (ditemukan: '{$parts[5]}')";
+                    continue;
+                }
+
+                $points = !empty($parts[6]) ? (int) $parts[6] : $defaultPoints;
+                if ($points < 1 || $points > 100) {
+                    $points = $defaultPoints;
+                }
+
+                $currentOrder++;
+
+                Question::create([
+                    'exam_id' => $exam->id,
+                    'question_text' => $parts[0],
+                    'option_a' => $parts[1],
+                    'option_b' => $parts[2],
+                    'option_c' => $parts[3],
+                    'option_d' => $parts[4],
+                    'correct_answer' => $correctAnswer,
+                    'points' => $points,
+                    'order' => $currentOrder,
+                ]);
+
+                $imported++;
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())->withInput();
+        }
+
+        $message = "{$imported} soal berhasil diimport.";
+        if (!empty($errors)) {
+            $message .= " " . count($errors) . " baris error.";
+        }
+
+        return redirect()->route('admin.questions.show', $exam)
+            ->with('success', $message)
+            ->with('import_errors', $errors);
     }
 }

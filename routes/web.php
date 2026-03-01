@@ -5,6 +5,7 @@ use App\Http\Controllers\StudentDashboardController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\ExamLobbyController;
 use App\Http\Controllers\QuestionController;
+use App\Http\Controllers\StudentController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
@@ -48,6 +49,17 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
+    // Student Management
+    Route::get('/students', [StudentController::class, 'index'])->name('students.index');
+    Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
+    Route::post('/students', [StudentController::class, 'store'])->name('students.store');
+    Route::get('/students/import', [StudentController::class, 'importForm'])->name('students.import');
+    Route::post('/students/import', [StudentController::class, 'import'])->name('students.importProcess');
+    Route::delete('/students/delete-all', [StudentController::class, 'deleteAll'])->name('students.deleteAll');
+    Route::get('/students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
+    Route::put('/students/{student}', [StudentController::class, 'update'])->name('students.update');
+    Route::delete('/students/{student}', [StudentController::class, 'destroy'])->name('students.destroy');
+
     // Exam CRUD
     Route::get('/exam/create', [AdminDashboardController::class, 'createExam'])->name('exam.create');
     Route::post('/exam', [AdminDashboardController::class, 'storeExam'])->name('exam.store');
@@ -78,6 +90,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::put('/questions/{exam}/{question}', [QuestionController::class, 'update'])->name('questions.update');
     Route::delete('/questions/{exam}/{question}', [QuestionController::class, 'destroy'])->name('questions.destroy');
     Route::post('/questions/{exam}/set-all-points', [QuestionController::class, 'setAllPoints'])->name('questions.setAllPoints');
+    Route::get('/questions/{exam}/import', [QuestionController::class, 'importForm'])->name('questions.import');
+    Route::post('/questions/{exam}/import', [QuestionController::class, 'import'])->name('questions.importProcess');
 });
 
 // Student polling endpoint - No group throttle (polling is already cached server-side)

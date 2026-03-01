@@ -32,6 +32,10 @@
                         ⚡ Set Semua
                     </button>
                 </form>
+                <a href="{{ route('admin.questions.import', $exam) }}"
+                   class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-3 rounded-lg text-sm transition-colors whitespace-nowrap">
+                    📥 Import Soal
+                </a>
                 <a href="{{ route('admin.exam.edit', $exam) }}"
                    class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium py-2 px-3 rounded-lg text-sm transition-colors">
                     ✏️ Edit Ujian

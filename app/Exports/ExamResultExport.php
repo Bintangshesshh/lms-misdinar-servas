@@ -59,7 +59,7 @@ class ExamResultExport
         /** @var \Illuminate\Support\Collection<int, \App\Models\ExamSession> $sessions */
         $sessions = ExamSession::where('exam_id', $exam->id)
             ->whereNotNull('joined_at')
-            ->with(['user:id,name,email,full_name,kelas,umur,lingkungan', 'cheatLogs'])
+            ->with(['user:id,name,email,full_name,kelas,umur,lingkungan,asal_sekolah', 'cheatLogs'])
             ->get();
 
         // Preload all answers keyed by session_id
@@ -114,12 +114,13 @@ class ExamResultExport
 
         $headers = [
             'No', 'Nama Lengkap', 'Username', 'Email',
-            'Kelas', 'Umur', 'Lingkungan',
+            'Kelas', 'Umur', 'Lingkungan', 'Asal Sekolah',
             'Status',
             'Skor Akademik', 'Skor Integritas',
             'Jawaban Benar', 'Jawaban Salah', 'Tidak Dijawab',
             'Poin Diperoleh', 'Total Pelanggaran',
             'Terminated (x)', 'Tab Switch', 'Screenshot', 'Split Screen', 'Window Blur',
+            'Fullscreen Exit', 'Resize/Split',
             'Waktu Join', 'Waktu Selesai',
         ];
         $writer->addRow(Row::fromValuesWithStyle($headers, $this->headerStyle()));
@@ -128,12 +129,12 @@ class ExamResultExport
         foreach ($sessions as $session) {
             $answers = $allAnswers->get($session->id, collect());
 
-            $correctCount = $answers->where('is_correct', true)->count();
-            $wrongCount = $answers->where('is_correct', false)->whereNotNull('selected_answer')->count();
+            $correctCount = $answers->filter(fn($a) => $a->is_correct)->count();
+            $wrongCount = $answers->filter(fn($a) => !$a->is_correct && $a->selected_answer !== null)->count();
             $unanswered = $questions->count() - $answers->count();
 
             $earnedPoints = 0;
-            foreach ($answers->where('is_correct', true) as $ans) {
+            foreach ($answers->filter(fn($a) => $a->is_correct) as $ans) {
                 $q = $questions->firstWhere('id', $ans->question_id);
                 if ($q) $earnedPoints += $q->points;
             }
@@ -143,6 +144,8 @@ class ExamResultExport
             $screenshot = $cheatLogs->where('violation_type', 'screenshot')->count();
             $splitScreen = $cheatLogs->where('violation_type', 'split_screen')->count();
             $windowBlur = $cheatLogs->where('violation_type', 'window_blur')->count();
+            $fullscreenExit = $cheatLogs->where('violation_type', 'fullscreen_exit')->count();
+            $resizeSuspicion = $cheatLogs->where('violation_type', 'resize_suspicion')->count();
 
             $statusLabels = [
                 'ongoing' => 'Sedang Mengerjakan',
@@ -158,6 +161,7 @@ class ExamResultExport
                 $session->user->kelas ?? '-',
                 $session->user->umur ?? '-',
                 $session->user->lingkungan ?? '-',
+                $session->user->asal_sekolah ?? '-',
                 $statusLabels[$session->status] ?? $session->status,
                 $session->score_academic ?? 0,
                 $session->score_integrity,
@@ -171,6 +175,8 @@ class ExamResultExport
                 $screenshot,
                 $splitScreen,
                 $windowBlur,
+                $fullscreenExit,
+                $resizeSuspicion,
                 $session->joined_at?->format('H:i:s') ?? '-',
                 $session->end_time?->format('H:i:s') ?? '-',
             ];
@@ -351,7 +357,7 @@ class ExamResultExport
                 ->get();
 
             $totalAnswered = $qAnswers->whereNotNull('selected_answer')->count();
-            $correctCount = $qAnswers->where('is_correct', true)->count();
+            $correctCount = $qAnswers->filter(fn($a) => $a->is_correct)->count();
             $wrongCount = $totalAnswered - $correctCount;
             $accuracy = $totalAnswered > 0 ? round(($correctCount / $totalAnswered) * 100, 1) : 0;
 

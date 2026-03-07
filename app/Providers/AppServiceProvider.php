@@ -44,13 +44,40 @@ class AppServiceProvider extends ServiceProvider
             URL::forceRootUrl($rootUrl);
         }
 
-        // Configure rate limiters - very generous for development/testing
-        RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(500)->by($request->user()?->id ?: $request->ip());
+        // Configure rate limiters for concurrent exam traffic.
+        // Keys prefer authenticated user id to avoid one-shared-IP bottlenecks.
+        $limiterKey = function (Request $request): string {
+            $userId = $request->user()?->id;
+            return $userId ? 'u:' . $userId : 'ip:' . $request->ip();
+        };
+
+        // Keep API limiter high enough for 100+ concurrent students.
+        RateLimiter::for('api', function (Request $request) use ($limiterKey) {
+            return Limit::perMinute(1200)->by($limiterKey($request));
         });
 
-        RateLimiter::for('web', function (Request $request) {
-            return Limit::perMinute(500)->by($request->user()?->id ?: $request->ip());
+        RateLimiter::for('web', function (Request $request) use ($limiterKey) {
+            return Limit::perMinute(1200)->by($limiterKey($request));
+        });
+
+        // Student polling endpoint (status checks).
+        RateLimiter::for('exam-poll', function (Request $request) use ($limiterKey) {
+            return Limit::perMinute(240)->by($limiterKey($request));
+        });
+
+        // Auto-save answer endpoint.
+        RateLimiter::for('exam-save-answer', function (Request $request) use ($limiterKey) {
+            return Limit::perMinute(600)->by($limiterKey($request));
+        });
+
+        // Integrity logging can spike on device/browser edge cases.
+        RateLimiter::for('integrity-log', function (Request $request) use ($limiterKey) {
+            return Limit::perMinute(300)->by($limiterKey($request));
+        });
+
+        // Admin monitor polling endpoint.
+        RateLimiter::for('admin-monitor', function (Request $request) use ($limiterKey) {
+            return Limit::perMinute(300)->by($limiterKey($request));
         });
 
         // Force HTTPS only in production

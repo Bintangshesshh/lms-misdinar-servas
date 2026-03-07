@@ -5,7 +5,9 @@
 @section('content')
 <div id="monitor-data"
      data-exam-id="{{ $exam->id }}"
-     data-csrf="{{ csrf_token() }}">
+     data-csrf="{{ csrf_token() }}"
+     data-exam-status="{{ $exam->status }}"
+     data-started-at="{{ $exam->started_at?->toIso8601String() }}">
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -28,7 +30,7 @@
                 <div class="col-span-3">Nama Siswa</div>
                 <div class="col-span-2 text-center">Progress</div>
                 <div class="col-span-2 text-center">Skor Saat Ini</div>
-                <div class="col-span-2 text-center">Integrity</div>
+                <div class="col-span-2 text-center">Pelanggaran</div>
                 <div class="col-span-2 text-center">Waktu Tersisa</div>
                 <div class="col-span-1 text-center">Aksi</div>
             </div>
@@ -171,8 +173,9 @@
                     Pastikan semua siswa sudah bergabung sebelum menekan tombol ini.
                 </p>
             @elseif($exam->status === 'countdown')
-                <div class="w-full bg-orange-500 text-white font-bold py-4 px-6 rounded-xl text-lg text-center animate-pulse">
-                    COUNTDOWN...
+                <div id="countdown-display" class="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-4 px-6 rounded-xl text-lg text-center">
+                    <div class="text-3xl font-black" id="countdown-number">5</div>
+                    <div class="text-sm font-normal opacity-90 mt-1">Ujian dimulai dalam...</div>
                 </div>
             @elseif($exam->status === 'started')
                 <div class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-xl text-lg text-center mb-3">
@@ -216,19 +219,52 @@
     const monitorData = document.getElementById('monitor-data');
     const csrfToken = monitorData.dataset.csrf;
     const EXAM_ID = monitorData.dataset.examId;
+    let currentExamStatus = monitorData.dataset.examStatus;
+    const startedAtStr = monitorData.dataset.startedAt;
+
+    // Live countdown timer for countdown state
+    (function initCountdown() {
+        if (currentExamStatus !== 'countdown' || !startedAtStr) return;
+        const startedAt = new Date(startedAtStr);
+        const countdownEl = document.getElementById('countdown-number');
+        if (!countdownEl) return;
+
+        function updateCountdown() {
+            const now = new Date();
+            const remaining = Math.max(0, Math.ceil((startedAt - now) / 1000));
+            countdownEl.textContent = remaining;
+
+            if (remaining <= 0) {
+                countdownEl.textContent = '0';
+                document.getElementById('countdown-display').innerHTML =
+                    '<div class="text-xl font-black">MEMULAI UJIAN...</div>';
+                // The pollLobby will detect status change and reload
+                setTimeout(function() { window.location.reload(); }, 1500);
+                return;
+            }
+            requestAnimationFrame(updateCountdown);
+        }
+        updateCountdown();
+    })();
 
     // Compute base path from current URL so it works on any domain/subdirectory
     var BASE_PATH = (function() {
-        var path = window.location.pathname;
-        var match = path.match(/(.*)?\/admin\//);
-        return match ? match[1] : '';
+        var path = window.location.pathname || '';
+        var marker = '/admin/';
+        var idx = path.indexOf(marker);
+        return idx >= 0 ? path.slice(0, idx) : '';
     })();
     const lobbyUrl = BASE_PATH + '/admin/exam/' + EXAM_ID + '/lobby-status';
     const terminateUrl = BASE_PATH + '/admin/exam/' + EXAM_ID + '/terminate-student';
     const reinstateUrl = BASE_PATH + '/admin/exam/' + EXAM_ID + '/reinstate-student';
 
-    function getStatusLevel(integrity, status) {
+    function getStatusLevel(integrity, status, violationCount) {
         if (status === 'blocked') return 'terminated';
+        if (violationCount !== undefined && violationCount !== null) {
+            if (violationCount >= 4) return 'danger';
+            if (violationCount >= 2) return 'warning';
+            return 'safe';
+        }
         if (integrity >= 80) return 'safe';
         if (integrity >= 50) return 'warning';
         return 'danger';
@@ -248,7 +284,7 @@
     }
 
     function renderStudent(student) {
-        const level = getStatusLevel(student.integrity, student.status);
+        const level = getStatusLevel(student.integrity, student.status, student.violation_count);
         const cfg = getStatusConfig(level);
 
         // Get total questions from cached data
@@ -304,7 +340,7 @@
                         <p class="text-xs text-gray-500">${student.email}</p>
                     </div>
                     <span class="px-2 py-0.5 text-xs font-bold rounded-full ${cfg.badge}">
-                        ${level === 'terminated' ? 'TERM' : student.integrity + '%'}
+                        ${level === 'terminated' ? 'TERM' : (student.violation_count || 0) + '/5'}
                     </span>
                 </div>
                 <div class="grid grid-cols-3 gap-2 text-xs">
@@ -357,7 +393,7 @@
                 </div>
                 <div class="col-span-2 text-center">
                     <span class="px-2.5 py-1 text-xs font-bold rounded-full ${cfg.badge}">
-                        ${level === 'terminated' ? 'TERM' : student.integrity + '%'}
+                        ${level === 'terminated' ? 'TERM' : (student.violation_count || 0) + '/5'}
                     </span>
                 </div>
                 <div class="col-span-2 text-center">
@@ -396,12 +432,32 @@
 
     async function pollLobby() {
         try {
-            const res = await fetch(lobbyUrl);
+            const res = await fetch(lobbyUrl, {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (res.status === 401 || res.status === 403 || res.status === 419 || (res.redirected && res.url && res.url.indexOf('/login') !== -1)) {
+                window.location.href = BASE_PATH + '/login';
+                return;
+            }
+
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+
             const data = await res.json();
 
             // Cache total questions
             if (data.total_questions) {
                 window.examTotalQuestions = data.total_questions;
+            }
+
+            // Auto-reload when exam status changes (countdown→started, started→finished, etc.)
+            if (data.exam_status && data.exam_status !== currentExamStatus) {
+                currentExamStatus = data.exam_status;
+                window.location.reload();
+                return;
             }
 
             document.getElementById('student-count').textContent = data.student_count;
@@ -412,7 +468,7 @@
             let activeStudents = 0;
 
             data.students.forEach(s => {
-                const level = getStatusLevel(s.integrity, s.status);
+                const level = getStatusLevel(s.integrity, s.status, s.violation_count);
                 if (level === 'safe') safe++;
                 else if (level === 'warning') warning++;
                 else if (level === 'danger') danger++;
@@ -456,9 +512,9 @@
     }
 
     pollLobby();
-    // Poll every 1.5s for real-time monitoring, skip when tab is hidden
+    // Poll every 2.5s to reduce backend pressure while staying near real-time
     setInterval(function() {
         if (!document.hidden) pollLobby();
-    }, 1500);
+    }, 2500);
 </script>
 @endsection

@@ -38,7 +38,6 @@ class Exam extends Model
     {
         return $this->sessions()
             ->where('status', 'ongoing')
-            ->whereNotNull('joined_at')
             ->with('user:id,name,email');
     }
 
@@ -57,6 +56,8 @@ class Exam extends Model
         // Countdown finished - auto-transition to started (lazy update)
         if ($this->status === 'countdown' && $this->started_at && $this->started_at->isPast()) {
             $this->update(['status' => 'started']);
+            // Sync in-memory attribute so callers see the new status immediately
+            $this->status = 'started';
             return true;
         }
 

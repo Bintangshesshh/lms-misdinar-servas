@@ -72,25 +72,10 @@ class ExamResultExport
             ->orderBy('occurred_at')
             ->get();
 
-        // Calculate terminated count per session
-        // Simulate score deductions: each violation = -30, each time score hits 0 = 1 terminated
-        // If reinstated, score resets to 60
+        // Use actual violation_count from session (set by IntegrityController)
         $terminatedCounts = [];
         foreach ($sessions as $session) {
-            $sessionLogs = $allLogs->where('exam_session_id', $session->id);
-            $score = 100;
-            $terminated = 0;
-            foreach ($sessionLogs as $log) {
-                $score -= 30;
-                if ($score <= 0) {
-                    $terminated++;
-                    $score = 60; // reinstate gives 60
-                }
-            }
-            if ($session->status === 'blocked' && $terminated === 0) {
-                $terminated = 1;
-            }
-            $terminatedCounts[$session->id] = $terminated;
+            $terminatedCounts[$session->id] = $session->violation_count ?? 0;
         }
 
         $filename = 'Laporan_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $exam->title) . '_' . now()->format('Y-m-d_His') . '.xlsx';
@@ -117,9 +102,9 @@ class ExamResultExport
             'Kelas', 'Umur', 'Lingkungan', 'Asal Sekolah',
             'Status',
             'Skor Akademik', 'Skor Integritas',
-            'Jawaban Benar', 'Jawaban Salah', 'Tidak Dijawab',
-            'Poin Diperoleh', 'Total Pelanggaran',
-            'Terminated (x)', 'Tab Switch', 'Screenshot', 'Split Screen', 'Window Blur',
+            'Jawaban Benar', 'Jawaban Salah', 'Soal Essay', 'Tidak Dijawab',
+            'Poin Diperoleh', 'Jumlah Pelanggaran', 'Total Log Pelanggaran',
+            'Tab Switch', 'Screenshot', 'Split Screen', 'Window Blur',
             'Fullscreen Exit', 'Resize/Split',
             'Waktu Join', 'Waktu Selesai',
         ];
@@ -131,6 +116,7 @@ class ExamResultExport
 
             $correctCount = $answers->filter(fn($a) => $a->is_correct)->count();
             $wrongCount = $answers->filter(fn($a) => !$a->is_correct && $a->selected_answer !== null)->count();
+            $essayCount = $answers->filter(fn($a) => $a->answer_text !== null && $a->selected_answer === null)->count();
             $unanswered = $questions->count() - $answers->count();
 
             $earnedPoints = 0;
@@ -167,10 +153,11 @@ class ExamResultExport
                 $session->score_integrity,
                 $correctCount,
                 $wrongCount,
+                $essayCount,
                 $unanswered,
                 $earnedPoints,
+                $session->violation_count ?? 0,
                 $cheatLogs->count(),
-                $terminatedCounts[$session->id] ?? 0,
                 $tabSwitch,
                 $screenshot,
                 $splitScreen,
@@ -208,7 +195,11 @@ class ExamResultExport
 
         $correctRow = ['', '', '', 'KUNCI JAWABAN →'];
         foreach ($questions as $q) {
-            $correctRow[] = strtoupper($q->correct_answer);
+            if ($q->question_type === 'essay') {
+                $correctRow[] = '(Essay)';
+            } else {
+                $correctRow[] = strtoupper($q->correct_answer);
+            }
         }
         $correctRow[] = '';
         $correctRow[] = '';
@@ -227,13 +218,23 @@ class ExamResultExport
             $correct = 0;
             foreach ($questions as $q) {
                 $ans = $answers->get($q->id);
-                if (!$ans || !$ans->selected_answer) {
-                    $row[] = '-';
+                if ($q->question_type === 'essay') {
+                    // Essay: show the actual text (truncated for sheet 2)
+                    if ($ans && $ans->answer_text) {
+                        $row[] = mb_substr($ans->answer_text, 0, 100);
+                    } else {
+                        $row[] = '-';
+                    }
                 } else {
-                    $letter = strtoupper($ans->selected_answer);
-                    $isCorrect = $ans->is_correct;
-                    $row[] = $letter . ($isCorrect ? ' ✓' : ' ✗');
-                    if ($isCorrect) $correct++;
+                    // MC: show letter + check mark
+                    if (!$ans || !$ans->selected_answer) {
+                        $row[] = '-';
+                    } else {
+                        $letter = strtoupper($ans->selected_answer);
+                        $isCorrect = $ans->is_correct;
+                        $row[] = $letter . ($isCorrect ? ' ✓' : ' ✗');
+                        if ($isCorrect) $correct++;
+                    }
                 }
             }
             $row[] = $correct;
@@ -260,6 +261,8 @@ class ExamResultExport
             'window_blur' => 'Keluar Window',
             'screenshot' => 'Screenshot',
             'device_offline' => 'Device Offline',
+            'fullscreen_exit' => 'Keluar Fullscreen',
+            'resize_suspicion' => 'Resize / Split Suspicion',
         ];
 
         $no = 1;
@@ -351,24 +354,110 @@ class ExamResultExport
         $writer->addRow(Row::fromValuesWithStyle(['AKURASI PER SOAL', '', '', '', '', ''], $this->sectionStyle()));
         $writer->addRow(Row::fromValuesWithStyle(['Soal', 'Pertanyaan', 'Kunci', 'Benar', 'Salah', '% Akurasi'], $this->headerStyle()));
 
+        $sessionIds = $sessions->pluck('id');
         foreach ($questions as $i => $q) {
-            $qAnswers = StudentAnswer::where('question_id', $q->id)
-                ->whereIn('exam_session_id', $sessions->pluck('id'))
-                ->get();
+            // Use pre-loaded allAnswers to avoid N+1
+            $qAnswers = collect();
+            foreach ($allAnswers as $sessId => $sessAnswers) {
+                if ($sessionIds->contains($sessId)) {
+                    $match = $sessAnswers->where('question_id', $q->id);
+                    $qAnswers = $qAnswers->merge($match);
+                }
+            }
 
-            $totalAnswered = $qAnswers->whereNotNull('selected_answer')->count();
-            $correctCount = $qAnswers->filter(fn($a) => $a->is_correct)->count();
-            $wrongCount = $totalAnswered - $correctCount;
-            $accuracy = $totalAnswered > 0 ? round(($correctCount / $totalAnswered) * 100, 1) : 0;
+            $isEssay = $q->question_type === 'essay';
+            if ($isEssay) {
+                $totalAnswered = $qAnswers->whereNotNull('answer_text')->count();
+                $writer->addRow(Row::fromValues([
+                    'Soal ' . ($i + 1) . ' (Essay)',
+                    mb_substr($q->question_text, 0, 80),
+                    '(Essay)',
+                    '-',
+                    '-',
+                    $totalAnswered . ' jawaban',
+                ]));
+            } else {
+                $totalAnswered = $qAnswers->whereNotNull('selected_answer')->count();
+                $correctCount = $qAnswers->filter(fn($a) => $a->is_correct)->count();
+                $wrongCount = $totalAnswered - $correctCount;
+                $accuracy = $totalAnswered > 0 ? round(($correctCount / $totalAnswered) * 100, 1) : 0;
 
-            $writer->addRow(Row::fromValues([
-                'Soal ' . ($i + 1),
-                mb_substr($q->question_text, 0, 80),
-                strtoupper($q->correct_answer),
-                $correctCount,
-                $wrongCount,
-                $accuracy . '%',
-            ]));
+                $writer->addRow(Row::fromValues([
+                    'Soal ' . ($i + 1),
+                    mb_substr($q->question_text, 0, 80),
+                    strtoupper($q->correct_answer),
+                    $correctCount,
+                    $wrongCount,
+                    $accuracy . '%',
+                ]));
+            }
+        }
+
+        // ============================================
+        // SHEET 5: JAWABAN RESPONDEN (Google Forms Style)
+        // Full raw answers — one row per student, columns = questions
+        // ============================================
+        $sheet5 = $writer->addNewSheetAndMakeItCurrent();
+        $sheet5->setName('Jawaban Responden');
+
+        $writer->addRow(Row::fromValuesWithStyle(['JAWABAN RESPONDEN (RAW)'], $this->titleStyle()));
+        $writer->addRow(Row::fromValues(['Ujian: ' . $exam->title]));
+        $writer->addRow(Row::fromValues(['Format: Seperti Google Forms — jawaban asli setiap responden']));
+        $writer->addRow(Row::fromValues([]));
+
+        // Headers: Nama, Kelas, Email, then each question text
+        $rawHeaders = ['Nama Lengkap', 'Kelas', 'Email', 'Status', 'Skor', 'Pelanggaran'];
+        foreach ($questions as $i => $q) {
+            $rawHeaders[] = 'Soal ' . ($i + 1) . ': ' . mb_substr($q->question_text, 0, 60);
+        }
+        $writer->addRow(Row::fromValuesWithStyle($rawHeaders, $this->headerStyle()));
+
+        // Question type row
+        $typeRow = ['', '', '', '', '', ''];
+        foreach ($questions as $q) {
+            $typeRow[] = $q->question_type === 'essay' ? '[Essay]' : '[Pilihan Ganda]';
+        }
+        $writer->addRow(Row::fromValuesWithStyle($typeRow, $this->keyStyle()));
+
+        foreach ($sessions as $session) {
+            $answers = $allAnswers->get($session->id, collect())->keyBy('question_id');
+
+            $statusLabels = [
+                'ongoing' => 'Mengerjakan',
+                'completed' => 'Selesai',
+                'blocked' => 'TERMINATED',
+            ];
+
+            $row = [
+                $session->user->full_name ?? $session->user->name ?? '-',
+                $session->user->kelas ?? '-',
+                $session->user->email ?? '-',
+                $statusLabels[$session->status] ?? $session->status,
+                $session->score_academic ?? 0,
+                $session->violation_count ?? 0,
+            ];
+
+            foreach ($questions as $q) {
+                $ans = $answers->get($q->id);
+                if (!$ans) {
+                    $row[] = '(tidak dijawab)';
+                } elseif ($q->question_type === 'essay') {
+                    // Essay: show full text
+                    $row[] = $ans->answer_text ?? '(tidak dijawab)';
+                } else {
+                    // MC: show the actual option text they chose
+                    $selected = $ans->selected_answer;
+                    if (!$selected) {
+                        $row[] = '(tidak dijawab)';
+                    } else {
+                        $optionField = 'option_' . strtolower($selected);
+                        $optionText = $q->{$optionField} ?? strtoupper($selected);
+                        $row[] = strtoupper($selected) . '. ' . $optionText;
+                    }
+                }
+            }
+
+            $writer->addRow(Row::fromValues($row));
         }
 
         $writer->close();

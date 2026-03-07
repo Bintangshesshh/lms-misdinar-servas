@@ -40,15 +40,21 @@
         {{-- Format Guide --}}
         <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 class="font-semibold text-blue-800 mb-2">Format Data (CSV):</h3>
+            <p class="text-sm text-blue-700 font-medium mb-1">Pilihan Ganda:</p>
             <code class="text-sm text-blue-700 block mb-2">soal,opsi_a,opsi_b,opsi_c,opsi_d,jawaban_benar,poin</code>
+            <p class="text-sm text-purple-700 font-medium mb-1">Essay:</p>
+            <code class="text-sm text-purple-700 block mb-2">ESSAY,teks_soal,poin</code>
             <p class="text-sm text-blue-700 mb-2">Contoh:</p>
             <pre class="text-xs bg-blue-100 p-3 rounded overflow-x-auto">Siapakah Bapa Gereja yang menulis buku "Pengakuan-Pengakuan"?,Santo Agustinus,Santo Thomas Aquinas,Santo Ambrosius,Santo Hieronimus,a,10
 Sakramen Inisiasi Kristen terdiri dari?,Baptis - Ekaristi - Krisma,Baptis - Tobat - Krisma,Ekaristi - Tobat - Perminyakan,Baptis - Ekaristi - Imamat,a
-Berapa jumlah Sakramen dalam Gereja Katolik?,5,6,7,8,c</pre>
+Berapa jumlah Sakramen dalam Gereja Katolik?,5,6,7,8,c
+ESSAY,Jelaskan makna Sakramen Ekaristi dalam kehidupan umat Katolik!,20
+ESSAY,Sebutkan dan jelaskan 3 tugas pokok Gereja!,20</pre>
             <p class="text-xs text-blue-600 mt-2">
                 <strong>Catatan:</strong><br>
-                - Minimal 6 kolom wajib: soal, opsi_a, opsi_b, opsi_c, opsi_d, jawaban_benar<br>
-                - Jawaban benar: <strong>a</strong>, <strong>b</strong>, <strong>c</strong>, atau <strong>d</strong> (huruf kecil)<br>
+                - <strong>Pilihan Ganda:</strong> Minimal 6 kolom: soal, opsi_a, opsi_b, opsi_c, opsi_d, jawaban_benar<br>
+                - <strong>Essay:</strong> Awali baris dengan <code>ESSAY</code> diikuti teks soal dan poin<br>
+                - Jawaban benar (PG): <strong>a</strong>, <strong>b</strong>, <strong>c</strong>, atau <strong>d</strong><br>
                 - Poin boleh dikosongkan → akan pakai poin default<br>
                 - Jika soal mengandung koma, bungkus dengan tanda kutip: <code>"Soal tentang ini, itu"</code>
             </p>
@@ -89,9 +95,9 @@ Berapa jumlah Sakramen dalam Gereja Katolik?,5,6,7,8,c</pre>
                 <a href="{{ route('admin.questions.show', $exam) }}" class="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition">
                     Batal
                 </a>
-                <button type="submit" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-lg inline-flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                    Import Soal
+                <button type="submit" id="btn-import" class="btn-primary px-5 py-2.5 text-white font-semibold rounded-lg inline-flex items-center gap-2">
+                    <svg id="btn-import-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    <span id="btn-import-text">Import Soal</span>
                 </button>
             </div>
         </form>
@@ -99,6 +105,21 @@ Berapa jumlah Sakramen dalam Gereja Katolik?,5,6,7,8,c</pre>
 </div>
 
 <script>
+// Prevent double submit
+(function() {
+    var form = document.querySelector('form[action]');
+    var submitted = false;
+    form.addEventListener('submit', function(e) {
+        if (submitted) { e.preventDefault(); return; }
+        submitted = true;
+        var btn = document.getElementById('btn-import');
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+        document.getElementById('btn-import-text').textContent = 'Mengimport...';
+        document.getElementById('btn-import-icon').innerHTML = '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="31" stroke-dashoffset="10"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></circle>';
+    });
+})();
+
 function fillTemplate(type) {
     const textarea = document.getElementById('data');
     if (type === 'sample5') {
@@ -106,7 +127,7 @@ function fillTemplate(type) {
 Sakramen Inisiasi Kristen terdiri dari?,Baptis - Ekaristi - Krisma,Baptis - Tobat - Krisma,Ekaristi - Tobat - Perminyakan,Baptis - Ekaristi - Imamat,a,10
 Berapa jumlah Sakramen dalam Gereja Katolik?,5,6,7,8,c,10
 Apa nama doa yang diajarkan langsung oleh Yesus?,Salam Maria,Bapa Kami,Kemuliaan,Aku Percaya,b,10
-Kitab Suci Perjanjian Baru terdiri dari berapa kitab?,24,25,27,30,c,10`;
+ESSAY,Jelaskan makna Sakramen Ekaristi bagi umat Katolik!,20`;
     }
     textarea.focus();
 }

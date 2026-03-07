@@ -80,7 +80,7 @@
                     class="px-8 py-4 bg-white text-red-900 font-bold rounded-xl hover:bg-gray-100 transition-colors text-lg shadow-lg">
                 KEMBALI KE FULLSCREEN
             </button>
-            <p class="mt-4 text-red-400 text-xs">Keluar fullscreen berulang kali akan mengurangi skor integritas Anda secara signifikan</p>
+            <p class="mt-4 text-red-400 text-xs">Setiap pelanggaran dihitung. Jika mencapai {{ \App\Http\Controllers\Api\IntegrityController::MAX_VIOLATIONS }} pelanggaran, ujian otomatis dikumpulkan.</p>
         </div>
     </div>
 
@@ -110,9 +110,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
                 </svg>
             </div>
-            <h2 class="text-3xl font-black text-white mb-3">TERMINATED</h2>
-            <p class="text-red-400 text-lg font-semibold mb-2">Skor integritas Anda mencapai 0%</p>
-            <p class="text-gray-400 mb-6">Anda tidak dapat melanjutkan ujian ini karena terlalu banyak pelanggaran. Hubungi admin/guru jika ingin diizinkan kembali.</p>
+            <h2 class="text-3xl font-black text-white mb-3">UJIAN DIKUMPULKAN</h2>
+            <p class="text-red-400 text-lg font-semibold mb-2">Anda telah melanggar 5 kali</p>
+            <p class="text-gray-400 mb-6">Ujian Anda telah otomatis dikumpulkan karena terlalu banyak pelanggaran. Jawaban yang telah Anda masukkan tetap tersimpan.</p>
             <div id="terminated-waiting" class="bg-red-900 bg-opacity-50 rounded-xl p-4 border border-red-700 mb-4">
                 <p class="text-red-300 text-sm">Menunggu keputusan Admin...</p>
             </div>
@@ -130,15 +130,18 @@
         </div>
     </div>
 
-    {{-- Integrity Bar --}}
+    {{-- Violation Counter Bar --}}
     <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-gray-700">Skor Integritas</span>
-            <span id="integrity-score" class="text-sm font-bold text-green-600">{{ $session->score_integrity }}%</span>
+            <span class="text-sm font-medium text-gray-700">Pelanggaran</span>
+            <span id="integrity-score" class="text-sm font-bold text-green-600">
+                <span id="violation-count-text">{{ $session->violation_count ?? 0 }}</span> / 5 pelanggaran
+            </span>
         </div>
         <div class="w-full bg-gray-200 rounded-full h-3">
-            <div id="integrity-bar" class="bg-green-500 h-3 rounded-full"></div>
+            <div id="integrity-bar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: {{ (($session->violation_count ?? 0) / 5) * 100 }}%"></div>
         </div>
+        <p class="text-xs text-gray-400 mt-1">Jika mencapai 5 pelanggaran, ujian akan otomatis dikumpulkan.</p>
     </div>
 
     {{-- Warning Banner (hidden by default) --}}
@@ -231,32 +234,51 @@
                     </div>
 
                     {{-- Answer Options --}}
-                    <div class="space-y-3" id="options-{{ $question->id }}">
-                        @foreach(['a', 'b', 'c', 'd'] as $opt)
-                            @php
-                                $optionField = 'option_' . $opt;
-                                $isSelected = isset($answers[$question->id]) && $answers[$question->id] === $opt;
-                            @endphp
-                            <label class="answer-option group flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer
-                                          {{ $isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200' }}"
-                                   data-question-id="{{ $question->id }}"
-                                   data-option="{{ $opt }}">
-                                <input type="radio"
-                                       name="answer_{{ $question->id }}"
-                                       value="{{ $opt }}"
-                                       {{ $isSelected ? 'checked' : '' }}
+                    @if($question->isEssay())
+                        {{-- Essay Question --}}
+                        <div class="space-y-3" id="options-{{ $question->id }}">
+                            <textarea name="essay_{{ $question->id }}"
+                                      id="essay-{{ $question->id }}"
+                                      data-question-id="{{ $question->id }}"
+                                      data-question-index="{{ $index }}"
+                                      data-question-type="essay"
+                                      class="essay-textarea w-full border-2 border-gray-200 rounded-xl p-4 text-base text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-y"
+                                      rows="6"
+                                      placeholder="Tulis jawaban Anda di sini..."
+                                      >{{ $answers[$question->id] ?? '' }}</textarea>
+                            <p class="text-xs text-gray-400">
+                                <span id="char-count-{{ $question->id }}">{{ strlen($answers[$question->id] ?? '') }}</span> karakter
+                            </p>
+                        </div>
+                    @else
+                        {{-- Multiple Choice --}}
+                        <div class="space-y-3" id="options-{{ $question->id }}">
+                            @foreach(['a', 'b', 'c', 'd'] as $opt)
+                                @php
+                                    $optionField = 'option_' . $opt;
+                                    $isSelected = isset($answers[$question->id]) && $answers[$question->id] === $opt;
+                                @endphp
+                                <label class="answer-option group flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer
+                                              {{ $isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200' }}"
                                        data-question-id="{{ $question->id }}"
-                                       data-option="{{ $opt }}"
-                                       data-question-index="{{ $index }}"
-                                       class="hidden answer-radio-input">
-                                <div class="answer-radio w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 font-bold text-sm
-                                            {{ $isSelected ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-gray-300 text-gray-500' }}">
-                                    {{ strtoupper($opt) }}
-                                </div>
-                                <span class="text-gray-800 text-base">{{ $question->$optionField }}</span>
-                            </label>
-                        @endforeach
-                    </div>
+                                       data-option="{{ $opt }}">
+                                    <input type="radio"
+                                           name="answer_{{ $question->id }}"
+                                           value="{{ $opt }}"
+                                           {{ $isSelected ? 'checked' : '' }}
+                                           data-question-id="{{ $question->id }}"
+                                           data-option="{{ $opt }}"
+                                           data-question-index="{{ $index }}"
+                                           class="hidden answer-radio-input">
+                                    <div class="answer-radio w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 font-bold text-sm
+                                                {{ $isSelected ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-gray-300 text-gray-500' }}">
+                                        {{ strtoupper($opt) }}
+                                    </div>
+                                    <span class="text-gray-800 text-base">{{ $question->$optionField }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Navigation Buttons --}}
@@ -360,22 +382,25 @@
     // Compute base path from current URL to handle subdirectory deployments
     // e.g. /LMS-Misdinar/public/student/exam/1/take → /LMS-Misdinar/public
     var BASE_PATH = (function() {
-        var path = window.location.pathname;
-        var match = path.match(/(.*?)\/student\//);
-        return match ? match[1] : '';
+        var path = window.location.pathname || '';
+        var marker = '/student/';
+        var idx = path.indexOf(marker);
+        return idx >= 0 ? path.slice(0, idx) : '';
     })();
     var POLL_URL = BASE_PATH + '/api/exam/' + EXAM_ID + '/poll-status';
     var SUBMIT_URL = BASE_PATH + '/student/exam/' + EXAM_ID + '/submit';
     var SAVE_URL = BASE_PATH + '/student/exam/' + EXAM_ID + '/save-answer';
     var LOG_URL_BASE = BASE_PATH + '/student/integrity/log-violation';
     var RESULT_URL = BASE_PATH + '/student/exam/' + EXAM_ID + '/result';
+    var MAX_VIOLATIONS = 5;
+    var currentViolationCount = {{ $session->violation_count ?? 0 }};
 
     var currentQuestion = 0;
     var answeredSet = new Set();
     var examEnded = false;
 
     // ========== OFFLINE QUEUE & RETRY SYSTEM ==========
-    var pendingQueue = {}; // { questionId: { question_id, selected_answer } }
+    var pendingQueue = {}; // { questionId: { question_id, selected_answer|answer_text, is_essay?, timestamp } }
     var isSyncing = false;
 
     // Create save status indicator element
@@ -443,6 +468,41 @@
             el.style.color = 'white';
             el.textContent = '⏳ Gagal menyimpan, akan otomatis dicoba lagi...';
             // Don't auto-hide
+        }
+    }
+
+    // Local answer storage format:
+    // { [questionId]: { type: 'mc'|'essay', value: string } }
+    // Backward compatible with legacy string-only values.
+    function parseLocalAnswerEntry(entry) {
+        if (entry === null || entry === undefined) return null;
+        if (typeof entry === 'object' && entry.type && Object.prototype.hasOwnProperty.call(entry, 'value')) {
+            return { type: entry.type, value: String(entry.value ?? '') };
+        }
+
+        var raw = String(entry);
+        if (/^[a-d]$/i.test(raw)) {
+            return { type: 'mc', value: raw.toLowerCase() };
+        }
+        return { type: 'essay', value: raw };
+    }
+
+    function setLocalAnswer(questionId, type, value) {
+        try {
+            var key = 'exam_' + EXAM_ID + '_answers';
+            var store = JSON.parse(localStorage.getItem(key) || '{}');
+            store[questionId] = { type: type, value: String(value ?? '') };
+            localStorage.setItem(key, JSON.stringify(store));
+        } catch (e) {}
+    }
+
+    function getLocalAnswer(questionId) {
+        try {
+            var key = 'exam_' + EXAM_ID + '_answers';
+            var store = JSON.parse(localStorage.getItem(key) || '{}');
+            return parseLocalAnswerEntry(store[questionId]);
+        } catch (e) {
+            return null;
         }
     }
 
@@ -521,6 +581,14 @@
             // Snapshot the timestamp so we know which version we're sending
             var sentTimestamp = item.timestamp;
 
+            // Build payload based on question type
+            var payload = { question_id: item.question_id };
+            if (item.is_essay) {
+                payload.answer_text = item.answer_text;
+            } else {
+                payload.selected_answer = item.selected_answer;
+            }
+
             fetch(saveUrl, {
                 method: 'POST',
                 headers: {
@@ -529,7 +597,7 @@
                     'Accept': 'application/json',
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ question_id: item.question_id, selected_answer: item.selected_answer })
+                body: JSON.stringify(payload)
             }).then(function(res) {
                 if (res.ok) {
                     removeFromPending(qId, sentTimestamp);
@@ -591,21 +659,30 @@
         var localAnswers = JSON.parse(localStorage.getItem('exam_' + EXAM_ID + '_answers') || '{}');
         var restoredCount = 0;
         for (var qId in localAnswers) {
-            if (!answeredSet.has(Number(qId))) {
-                var opt = localAnswers[qId];
+            if (answeredSet.has(Number(qId))) {
+                continue;
+            }
+
+            var parsed = parseLocalAnswerEntry(localAnswers[qId]);
+            if (!parsed) {
+                continue;
+            }
+
+            if (parsed.type === 'mc') {
+                var opt = parsed.value;
                 var radio = document.querySelector('.answer-radio-input[data-question-id="' + qId + '"][data-option="' + opt + '"]');
                 if (radio && !radio.checked) {
                     radio.checked = true;
                     answeredSet.add(Number(qId));
                     restoredCount++;
-                    
+
                     // Update visual state
                     var label = radio.closest('.answer-option');
                     if (label) {
                         label.classList.remove('border-gray-200', 'hover:border-indigo-300', 'hover:bg-gray-50');
                         label.classList.add('border-indigo-500', 'bg-indigo-50');
                     }
-                    
+
                     // Sync to server
                     var qIndex = Number(radio.dataset.questionIndex || 0);
                     (function(questionId, option, index) {
@@ -613,6 +690,30 @@
                             selectAnswer(questionId, option, index);
                         }, restoredCount * 500);
                     })(Number(qId), opt, qIndex);
+                }
+            } else if (parsed.type === 'essay') {
+                var textarea = document.querySelector('.essay-textarea[data-question-id="' + qId + '"]');
+                if (textarea && textarea.value.trim().length === 0 && parsed.value.trim().length > 0) {
+                    textarea.value = parsed.value;
+                    answeredSet.add(Number(qId));
+                    restoredCount++;
+
+                    var charEl = document.getElementById('char-count-' + qId);
+                    if (charEl) charEl.textContent = parsed.value.length;
+
+                    var essayQIndex = Number(textarea.dataset.questionIndex || 0);
+                    var navDot = document.getElementById('nav-dot-' + essayQIndex);
+                    if (navDot) {
+                        navDot.classList.remove('bg-gray-100', 'text-gray-600');
+                        navDot.classList.add('bg-indigo-600', 'text-white');
+                    }
+
+                    // Push restored essay to sync queue.
+                    (function(questionId, text, delayIndex) {
+                        setTimeout(function() {
+                            addEssayToPendingQueue(questionId, text);
+                        }, delayIndex * 500);
+                    })(Number(qId), parsed.value, restoredCount);
                 }
             }
         }
@@ -655,6 +756,67 @@
             selectAnswer(Number(this.dataset.questionId), this.dataset.option, Number(this.dataset.questionIndex));
         });
     });
+
+    // ---- EVENT DELEGATION: Essay textarea (auto-save on input with debounce) ----
+    document.querySelectorAll('.essay-textarea').forEach(function(textarea) {
+        var qId = Number(textarea.dataset.questionId);
+        var qIndex = Number(textarea.dataset.questionIndex);
+        
+        // Update character count
+        textarea.addEventListener('input', function() {
+            var countEl = document.getElementById('char-count-' + qId);
+            if (countEl) countEl.textContent = this.value.length;
+            
+            // Mark as answered if has text
+            if (this.value.trim().length > 0) {
+                answeredSet.add(qId);
+            } else {
+                answeredSet.delete(qId);
+            }
+            updateAnsweredCount();
+            var navDot = document.getElementById('nav-dot-' + qIndex);
+            if (navDot) {
+                if (this.value.trim().length > 0) {
+                    navDot.classList.remove('bg-gray-100', 'text-gray-600');
+                    navDot.classList.add('bg-indigo-600', 'text-white');
+                } else {
+                    navDot.classList.remove('bg-indigo-600', 'text-white');
+                    navDot.classList.add('bg-gray-100', 'text-gray-600');
+                }
+            }
+            
+            // Debounce save (longer for essay — 1.5s)
+            if (window._essayTimers && window._essayTimers[qId]) {
+                clearTimeout(window._essayTimers[qId]);
+            }
+            if (!window._essayTimers) window._essayTimers = {};
+            var currentText = this.value;
+            
+            showSaveStatus('saving');
+            
+            // Backup to localStorage immediately
+            setLocalAnswer(qId, 'essay', currentText);
+            
+            window._essayTimers[qId] = setTimeout(function() {
+                delete window._essayTimers[qId];
+                addEssayToPendingQueue(qId, currentText);
+            }, 1500);
+        });
+        
+        // Also init answered state for pre-filled essays
+        if (textarea.value.trim().length > 0) {
+            answeredSet.add(qId);
+        }
+    });
+
+    // Add essay answer to pending queue
+    function addEssayToPendingQueue(questionId, text) {
+        pendingQueue[questionId] = { question_id: Number(questionId), answer_text: text, is_essay: true, timestamp: Date.now() };
+        try {
+            localStorage.setItem('exam_' + EXAM_ID + '_pending', JSON.stringify(pendingQueue));
+        } catch (e) {}
+        syncPendingQueue();
+    }
 
     // ---- EVENT DELEGATION: Prev/Next buttons ----
     document.querySelectorAll('.nav-prev-btn, .nav-next-btn').forEach(function(btn) {
@@ -806,11 +968,7 @@
         showSaveStatus('saving');
         
         // Backup to localStorage immediately
-        try {
-            var localAnswers = JSON.parse(localStorage.getItem('exam_' + EXAM_ID + '_answers') || '{}');
-            localAnswers[questionId] = option;
-            localStorage.setItem('exam_' + EXAM_ID + '_answers', JSON.stringify(localAnswers));
-        } catch (e) {}
+        setLocalAnswer(questionId, 'mc', option);
         
         window._saveTimers[questionId] = setTimeout(function() {
             delete window._saveTimers[questionId];
@@ -820,15 +978,31 @@
     }
 
     function confirmSubmit() {
-        // Flush any pending debounced saves immediately
+        // Flush any pending debounced MC saves immediately
         if (window._saveTimers) {
             for (var qId in window._saveTimers) {
                 clearTimeout(window._saveTimers[qId]);
                 delete window._saveTimers[qId];
-                // Get the answer from localStorage and queue it
                 try {
-                    var la = JSON.parse(localStorage.getItem('exam_' + EXAM_ID + '_answers') || '{}');
-                    if (la[qId]) addToPendingQueue(Number(qId), la[qId]);
+                    var saved = getLocalAnswer(qId);
+                    if (saved && saved.type === 'mc' && saved.value) {
+                        addToPendingQueue(Number(qId), saved.value);
+                    }
+                } catch (e) {}
+            }
+        }
+        // Flush any pending debounced essay saves
+        if (window._essayTimers) {
+            for (var eqId in window._essayTimers) {
+                clearTimeout(window._essayTimers[eqId]);
+                delete window._essayTimers[eqId];
+                try {
+                    var savedEssay = getLocalAnswer(eqId);
+                    if (savedEssay && savedEssay.type === 'essay') {
+                        if (typeof addEssayToPendingQueue === 'function') {
+                            addEssayToPendingQueue(Number(eqId), savedEssay.value);
+                        }
+                    }
                 } catch (e) {}
             }
         }
@@ -859,7 +1033,20 @@
     }
 
     // Flush pending queue then submit the form - SEQUENTIAL
-    function flushAndSubmit() {
+    function flushAndSubmit(isAutoSubmit) {
+        // For auto-submit (max violations), show overlay immediately
+        if (isAutoSubmit) {
+            var overlay = document.getElementById('submitting-overlay');
+            if (overlay) {
+                var statusEl = overlay.querySelector('#submit-status-text');
+                if (statusEl) statusEl.textContent = 'Ujian dikumpulkan otomatis karena pelanggaran...';
+                overlay.classList.remove('hidden');
+            }
+            // Close any open modals/overlays
+            document.getElementById('submit-modal').classList.add('hidden');
+            document.getElementById('fullscreen-warning-overlay').classList.add('hidden');
+        }
+
         var keys = Object.keys(pendingQueue);
         if (keys.length === 0 || !navigator.onLine) {
             // Nothing to flush or offline — just submit
@@ -885,6 +1072,12 @@
             }
 
             var sentTimestamp = item.timestamp;
+            var flushPayload = { question_id: item.question_id };
+            if (item.is_essay) {
+                flushPayload.answer_text = item.answer_text;
+            } else {
+                flushPayload.selected_answer = item.selected_answer;
+            }
             fetch(saveUrl, {
                 method: 'POST',
                 headers: {
@@ -893,7 +1086,7 @@
                     'Accept': 'application/json',
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ question_id: item.question_id, selected_answer: item.selected_answer })
+                body: JSON.stringify(flushPayload)
             }).then(function(res) {
                 if (res.ok) removeFromPending(qId, sentTimestamp);
                 flushNext(index + 1);
@@ -1076,18 +1269,27 @@
                 return;
             }
 
-            // Sync integrity from server (in case admin changed it)
+            // Session already completed on server (e.g. auto-submit from integrity threshold)
+            if (data.session_status === 'completed') {
+                examEnded = true;
+                setTimeout(function() {
+                    window.location.href = RESULT_URL;
+                }, 500);
+                return;
+            }
+
+            // Sync integrity and violation count from server (in case admin changed it)
             if (data.session_integrity !== null && data.session_integrity !== undefined) {
-                if (window.updateIntegrityUI) window.updateIntegrityUI(data.session_integrity);
+                if (window.updateIntegrityUI) window.updateIntegrityUI(data.session_integrity, data.violation_count);
             }
         }).catch(function(e) {
             // Silent fail for poll errors
         });
     }
 
-    // Poll every 8 seconds (balanced between responsiveness and server load)
-    // 100 students × 1 req/8s = 12.5 req/sec
-    pollInterval = setInterval(pollExamStatus, 8000);
+    // Poll every 10 seconds to keep server load lower on 100+ concurrent students.
+    // 100 students × 1 req/10s = 10 req/sec for this endpoint.
+    pollInterval = setInterval(pollExamStatus, 10000);
     // Also poll immediately when tab becomes visible again
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden && !examEnded) {
@@ -1168,10 +1370,16 @@
                 return res.json();
             }).then(function(data) {
                 if (data) {
-                    updateIntegrityUI(data.current_integrity);
-                    showWarning(type, data.penalty_applied || 0);
+                    updateIntegrityUI(data.current_integrity, data.violation_count);
+                    var remaining = data.remaining_violations !== undefined ? data.remaining_violations : (MAX_VIOLATIONS - (data.violation_count || 0));
+                    showWarning(type, remaining);
 
-                    if (data.terminated) {
+                    if (data.auto_submit) {
+                        // Max violations reached — auto-submit exam
+                        examEnded = true;
+                        flushAndSubmit(true);
+                    } else if (data.terminated) {
+                        // Legacy terminated flag
                         examEnded = true;
                         showTerminatedScreen();
                     }
@@ -1184,19 +1392,28 @@
         }
     }
 
-    function updateIntegrityUI(score) {
+    function updateIntegrityUI(score, violationCount) {
+        if (violationCount !== undefined && violationCount !== null) {
+            currentViolationCount = violationCount;
+        }
         currentIntegrity = score;
         var scoreEl = document.getElementById('integrity-score');
         var barEl = document.getElementById('integrity-bar');
+        var countEl = document.getElementById('violation-count-text');
         if (!scoreEl || !barEl) return;
 
-        scoreEl.textContent = score + '%';
-        barEl.style.width = score + '%';
+        // Update violation counter display
+        if (countEl) countEl.textContent = currentViolationCount;
+        scoreEl.innerHTML = '<span id="violation-count-text">' + currentViolationCount + '</span> / ' + MAX_VIOLATIONS + ' pelanggaran';
+        
+        // Bar shows violation progress (fills up as violations increase)
+        var pct = Math.min(100, (currentViolationCount / MAX_VIOLATIONS) * 100);
+        barEl.style.width = pct + '%';
 
-        if (score >= 80) {
+        if (currentViolationCount <= 1) {
             barEl.className = 'bg-green-500 h-3 rounded-full transition-all duration-500';
             scoreEl.className = 'text-sm font-bold text-green-600';
-        } else if (score >= 50) {
+        } else if (currentViolationCount <= 3) {
             barEl.className = 'bg-yellow-500 h-3 rounded-full transition-all duration-500';
             scoreEl.className = 'text-sm font-bold text-yellow-600';
         } else {
@@ -1207,21 +1424,23 @@
     // Expose to global scope for polling code
     window.updateIntegrityUI = updateIntegrityUI;
 
-    function showWarning(type, penalty) {
+    function showWarning(type, remaining) {
         var warningEl = document.getElementById('cheat-warning');
         var textEl = document.getElementById('warning-text');
         if (!warningEl || !textEl) return;
 
+        var suffix = remaining > 0 ? ' Sisa kesempatan: ' + remaining + ' kali.' : ' Ujian akan dikumpulkan otomatis!';
+
         var messages = {
-            'tab_switch': 'Anda berpindah tab! Skor dikurangi ' + penalty + ' poin.',
-            'split_screen': 'Split screen terdeteksi! Skor dikurangi ' + penalty + ' poin.',
-            'window_blur': 'Anda keluar dari halaman ujian! Skor dikurangi ' + penalty + ' poin.',
-            'screenshot': 'Screenshot terdeteksi! Skor dikurangi ' + penalty + ' poin.',
-            'fullscreen_exit': 'Anda keluar dari mode fullscreen! Skor dikurangi ' + penalty + ' poin.',
-            'resize_suspicion': 'Perubahan ukuran layar terdeteksi! Skor dikurangi ' + penalty + ' poin.',
+            'tab_switch': 'Anda berpindah tab!' + suffix,
+            'split_screen': 'Split screen terdeteksi!' + suffix,
+            'window_blur': 'Anda keluar dari halaman ujian!' + suffix,
+            'screenshot': 'Screenshot terdeteksi!' + suffix,
+            'fullscreen_exit': 'Anda keluar dari mode fullscreen!' + suffix,
+            'resize_suspicion': 'Perubahan ukuran layar terdeteksi!' + suffix,
         };
 
-        textEl.textContent = messages[type] || ('Pelanggaran terdeteksi! -' + penalty + ' poin.');
+        textEl.textContent = messages[type] || ('Pelanggaran terdeteksi!' + suffix);
         warningEl.classList.remove('hidden');
 
         clearTimeout(warningTimeout);

@@ -58,9 +58,19 @@
                         <span class="px-2.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">
                             {{ $question->points }} poin
                         </span>
+                        @if(($question->question_type ?? 'multiple_choice') === 'essay')
+                            <span class="px-2.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">
+                                Essay
+                            </span>
+                        @endif
                     </div>
                     <p class="text-gray-900 font-medium mb-4 whitespace-pre-line">{{ $question->question_text }}</p>
 
+                    @if(($question->question_type ?? 'multiple_choice') === 'essay')
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-700">
+                            <em>Soal Essay — siswa mengetik jawaban sendiri</em>
+                        </div>
+                    @else
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         @foreach(['a', 'b', 'c', 'd'] as $opt)
                             <div class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm
@@ -73,6 +83,7 @@
                             </div>
                         @endforeach
                     </div>
+                    @endif
                 </div>
 
                 <div class="flex items-center gap-1 ml-4 opacity-30 group-hover:opacity-100 transition-opacity">
@@ -121,8 +132,30 @@
             </button>
         </div>
 
-        <form action="{{ route('admin.questions.store', $exam) }}" method="POST" class="p-6 space-y-5">
+        <form action="{{ route('admin.questions.store', $exam) }}" method="POST" class="p-6 space-y-5" id="inline-add-form">
             @csrf
+
+            {{-- Question Type Selector --}}
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Tipe Soal</label>
+                <div class="flex gap-3">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="question_type" value="multiple_choice" class="peer sr-only" {{ old('question_type', 'multiple_choice') === 'multiple_choice' ? 'checked' : '' }} onchange="toggleInlineType()">
+                        <div class="p-3 border-2 rounded-xl text-center transition-all peer-checked:border-indigo-500 peer-checked:bg-indigo-50 border-gray-200 hover:border-gray-300">
+                            <span class="text-lg">📝</span>
+                            <p class="text-sm font-medium mt-1">Pilihan Ganda</p>
+                        </div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="question_type" value="essay" class="peer sr-only" {{ old('question_type') === 'essay' ? 'checked' : '' }} onchange="toggleInlineType()">
+                        <div class="p-3 border-2 rounded-xl text-center transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 border-gray-200 hover:border-gray-300">
+                            <span class="text-lg">✍️</span>
+                            <p class="text-sm font-medium mt-1">Essay</p>
+                        </div>
+                    </label>
+                </div>
+                @error('question_type') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
 
             <div>
                 <label for="question_text" class="block text-sm font-semibold text-gray-700 mb-2">Pertanyaan</label>
@@ -132,24 +165,25 @@
                 @error('question_text') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                @foreach(['a' => 'A', 'b' => 'B', 'c' => 'C', 'd' => 'D'] as $key => $label)
-                    <div>
-                        <label for="option_{{ $key }}" class="block text-sm font-medium text-gray-700 mb-1">Opsi {{ $label }}</label>
-                        <input type="text" name="option_{{ $key }}" id="option_{{ $key }}" required
-                            value="{{ old('option_' . $key) }}"
-                            class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-indigo-500 focus:border-indigo-500 @error('option_' . $key) border-red-500 @enderror"
-                            placeholder="Jawaban {{ $label }}">
-                        @error('option_' . $key) <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
-                @endforeach
-            </div>
+            {{-- MC Options --}}
+            <div id="inline-mc-section">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    @foreach(['a' => 'A', 'b' => 'B', 'c' => 'C', 'd' => 'D'] as $key => $label)
+                        <div>
+                            <label for="option_{{ $key }}" class="block text-sm font-medium text-gray-700 mb-1">Opsi {{ $label }}</label>
+                            <input type="text" name="option_{{ $key }}" id="option_{{ $key }}"
+                                value="{{ old('option_' . $key) }}"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-indigo-500 focus:border-indigo-500 @error('option_' . $key) border-red-500 @enderror inline-mc-field"
+                                placeholder="Jawaban {{ $label }}">
+                            @error('option_' . $key) <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    @endforeach
+                </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
+                <div class="mt-4">
                     <label for="correct_answer" class="block text-sm font-medium text-gray-700 mb-1">Jawaban Benar</label>
-                    <select name="correct_answer" id="correct_answer" required
-                        class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    <select name="correct_answer" id="correct_answer"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-indigo-500 focus:border-indigo-500 inline-mc-field">
                         <option value="">Pilih...</option>
                         @foreach(['a' => 'A', 'b' => 'B', 'c' => 'C', 'd' => 'D'] as $key => $label)
                             <option value="{{ $key }}" {{ old('correct_answer') === $key ? 'selected' : '' }}>{{ $label }}</option>
@@ -157,19 +191,29 @@
                     </select>
                     @error('correct_answer') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
-                <div>
-                    <label for="points" class="block text-sm font-medium text-gray-700 mb-1">Poin</label>
-                    <input type="number" name="points" id="points" min="1" max="100" value="{{ old('points', 10) }}" required
-                        class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    @error('points') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+
+            {{-- Essay Info --}}
+            <div id="inline-essay-section" class="hidden">
+                <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                    <p class="text-sm text-purple-700">
+                        <strong>Soal Essay:</strong> Siswa akan mengetik jawaban sendiri. Jawaban essay harus dinilai manual oleh admin.
+                    </p>
                 </div>
             </div>
 
+            <div>
+                <label for="points" class="block text-sm font-medium text-gray-700 mb-1">Poin</label>
+                <input type="number" name="points" id="points" min="1" max="100" value="{{ old('points', 10) }}" required
+                    class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                @error('points') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+
             <div class="flex items-center gap-3 pt-3 border-t border-gray-200">
-                <button type="submit"
+                <button type="submit" id="inline-submit-btn"
                     class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Simpan Soal
+                    <svg id="inline-submit-icon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span id="inline-submit-text">Simpan Soal</span>
                 </button>
                 <button type="button" onclick="toggleAddForm()"
                     class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl transition-colors">
@@ -197,7 +241,42 @@ function toggleAddForm() {
     }
 }
 
+function toggleInlineType() {
+    var isEssay = document.querySelector('#inline-add-form input[name="question_type"][value="essay"]').checked;
+    var mcSection = document.getElementById('inline-mc-section');
+    var essaySection = document.getElementById('inline-essay-section');
+    var mcFields = document.querySelectorAll('.inline-mc-field');
+
+    if (isEssay) {
+        mcSection.classList.add('hidden');
+        essaySection.classList.remove('hidden');
+        mcFields.forEach(function(f) { f.removeAttribute('required'); });
+    } else {
+        mcSection.classList.remove('hidden');
+        essaySection.classList.add('hidden');
+        mcFields.forEach(function(f) { f.setAttribute('required', ''); });
+    }
+}
+
+// Prevent double submit on inline form
+(function() {
+    var form = document.getElementById('inline-add-form');
+    if (!form) return;
+    var submitted = false;
+    form.addEventListener('submit', function(e) {
+        if (submitted) { e.preventDefault(); return; }
+        submitted = true;
+        var btn = document.getElementById('inline-submit-btn');
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+        document.getElementById('inline-submit-text').textContent = 'Menyimpan...';
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
+    // Initialize type toggle
+    toggleInlineType();
+
     const flagsEl = document.getElementById('flash-flags');
     const hasErrors = flagsEl && flagsEl.dataset.hasErrors === '1';
     const hasSuccess = flagsEl && flagsEl.dataset.hasSuccess === '1';

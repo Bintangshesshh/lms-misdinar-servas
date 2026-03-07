@@ -111,7 +111,8 @@
                     </div>
                 </div>
                 <h3 class="text-xl font-bold text-gray-900">Ujian sedang dimuat...</h3>
-                <p class="mt-2 text-indigo-600 font-medium animate-pulse">Kamu akan diarahkan otomatis ✦</p>
+                <p id="countdown-label" class="mt-2 text-indigo-600 font-medium animate-pulse">Kamu akan diarahkan otomatis ✦</p>
+                <p id="countdown-seconds" class="mt-2 text-3xl font-black text-indigo-700">5</p>
             </div>
         </div>
     </div>
@@ -124,36 +125,125 @@
 
     // Compute base path from current URL so it works on any domain/subdirectory
     var BASE_PATH = (function() {
-        var path = window.location.pathname;
-        var match = path.match(/(.*)?\/student\//);
-        return match ? match[1] : '';
+        var path = window.location.pathname || '';
+        var marker = '/student/';
+        var idx = path.indexOf(marker);
+        return idx >= 0 ? path.slice(0, idx) : '';
     })();
     const pollUrl = BASE_PATH + '/api/exam/' + examId + '/poll-status';
     const examUrl = BASE_PATH + '/student/exam/' + examId + '/take';
 
     let polling = null;
+    let countdownTick = null;
+    let countdownTargetMs = null;
+    let isRedirecting = false;
 
-    function startPolling() {
-        polling = setInterval(async () => {
-            // Skip polling when tab is hidden
-            if (document.hidden) return;
-            try {
-                const res = await fetch(pollUrl);
-                const data = await res.json();
+    function redirectToExam() {
+        if (isRedirecting) {
+            return;
+        }
 
-                if (data.exam_status === 'countdown' || data.exam_status === 'started') {
-                    clearInterval(polling);
-                    startCountdown();
-                }
-            } catch (e) {
-                console.error('Poll error:', e);
-            }
-        }, 3000); // Poll every 3 seconds (balanced: responsive enough for countdown detection)
+        isRedirecting = true;
+        window.location.href = examUrl;
     }
 
-    function startCountdown() {
+    async function pollExamStatus() {
+        try {
+            const res = await fetch(pollUrl, {
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (res.status === 401 || res.status === 403 || res.status === 419 || (res.redirected && res.url && res.url.indexOf('/login') !== -1)) {
+                window.location.href = BASE_PATH + '/login';
+                return;
+            }
+
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+
+            const data = await res.json();
+
+            if (data.exam_status === 'started') {
+                startCountdown(null, true);
+                return;
+            }
+
+            if (data.exam_status === 'countdown') {
+                startCountdown(data.started_at || null, false);
+            }
+        } catch (e) {
+            console.error('Poll error:', e);
+        }
+    }
+
+    function startPolling() {
+        pollExamStatus();
+
+        polling = setInterval(() => {
+            if (document.hidden || isRedirecting) {
+                return;
+            }
+            pollExamStatus();
+        }, 2000);
+    }
+
+    function startCountdown(startedAtIso, forceImmediate) {
         document.getElementById('waiting-state').classList.add('hidden');
         document.getElementById('countdown-state').classList.remove('hidden');
+
+        const labelEl = document.getElementById('countdown-label');
+        const secondsEl = document.getElementById('countdown-seconds');
+
+        if (forceImmediate) {
+            if (labelEl) {
+                labelEl.textContent = 'Ujian dimulai. Mengarahkan...';
+            }
+            if (secondsEl) {
+                secondsEl.textContent = '0';
+            }
+            clearInterval(countdownTick);
+            countdownTick = null;
+            setTimeout(redirectToExam, 300);
+            return;
+        }
+
+        if (startedAtIso) {
+            const parsedMs = Date.parse(startedAtIso);
+            if (!Number.isNaN(parsedMs)) {
+                countdownTargetMs = parsedMs;
+            }
+        }
+
+        if (!countdownTargetMs) {
+            countdownTargetMs = Date.now() + 1500;
+        }
+
+        const tick = function () {
+            const remainingMs = countdownTargetMs - Date.now();
+            const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+
+            if (secondsEl) {
+                secondsEl.textContent = String(remainingSec);
+            }
+
+            if (remainingMs <= 0) {
+                if (labelEl) {
+                    labelEl.textContent = 'Waktu habis. Mengarahkan ke soal...';
+                }
+                clearInterval(countdownTick);
+                countdownTick = null;
+                redirectToExam();
+            }
+        };
+
+        if (!countdownTick) {
+            tick();
+            countdownTick = setInterval(tick, 250);
+        }
 
         // Try to request fullscreen (user gesture context from poll may not work,
         // but the exam-take page has a proper user-gesture entry overlay as fallback)
@@ -175,10 +265,6 @@
             }
         } catch(e) {}
 
-        // Small delay so animation is visible, then redirect
-        setTimeout(() => {
-            window.location.href = examUrl;
-        }, 1500);
     }
 
     // Start polling when page loads

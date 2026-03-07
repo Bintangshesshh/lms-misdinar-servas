@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @property int $id
  * @property int $exam_id
+ * @property string $question_type
  * @property string $question_text
- * @property string $option_a
- * @property string $option_b
- * @property string $option_c
- * @property string $option_d
- * @property string $correct_answer
+ * @property string|null $option_a
+ * @property string|null $option_b
+ * @property string|null $option_c
+ * @property string|null $option_d
+ * @property string|null $correct_answer
  * @property int $points
  * @property int $order
  */
@@ -24,6 +25,16 @@ class Question extends Model
         'points' => 'integer',
         'order' => 'integer',
     ];
+
+    public function isEssay(): bool
+    {
+        return $this->question_type === 'essay';
+    }
+
+    public function isMultipleChoice(): bool
+    {
+        return $this->question_type === 'multiple_choice' || $this->question_type === null;
+    }
 
     public function exam()
     {

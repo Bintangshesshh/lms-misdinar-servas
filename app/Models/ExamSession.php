@@ -25,6 +25,7 @@ class ExamSession extends Model
         'joined_at' => 'datetime',
         'score_academic' => 'float',
         'score_integrity' => 'float',
+        'violation_count' => 'integer',
     ];
 
     public function user()

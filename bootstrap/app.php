@@ -12,13 +12,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if ($trustedProxies === null || trim((string) $trustedProxies) === '') {
+            // Local default is permissive for convenience; production should set TRUSTED_PROXIES explicitly.
+            $trustedProxies = env('APP_ENV') === 'local' ? '*' : ['127.0.0.1', '::1'];
+        } elseif ($trustedProxies !== '*') {
+            $trustedProxies = array_values(array_filter(array_map('trim', explode(',', (string) $trustedProxies))));
+            if ($trustedProxies === []) {
+                $trustedProxies = ['127.0.0.1', '::1'];
+            }
+        }
+
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
-        $middleware->trustProxies(at: '*');
-        $middleware->validateCsrfTokens(except: [
-            '*'
-        ]);
+        $middleware->trustProxies(at: $trustedProxies);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

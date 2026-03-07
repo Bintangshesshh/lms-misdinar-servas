@@ -10,6 +10,20 @@ use Illuminate\Support\Facades\Cache;
 
 class AdminDashboardController extends Controller
 {
+    private function heartbeatCacheKey(int $examId, int $sessionId): string
+    {
+        return "exam.{$examId}.session.{$sessionId}.heartbeat";
+    }
+
+    private function shouldDisplayInMonitor(int $examId, ExamSession $session): bool
+    {
+        if ($session->status !== 'ongoing') {
+            return true;
+        }
+
+        return Cache::has($this->heartbeatCacheKey($examId, (int) $session->id));
+    }
+
     public function index()
     {
         // Cache exam list for 30 seconds to reduce DB load
@@ -62,8 +76,16 @@ class AdminDashboardController extends Controller
      */
     public function lobbyStatus(Exam $exam)
     {
-        // Trigger lazy countdown → started transition
+        // Always get fresh data from DB (no stale model binding)
+        $exam->refresh();
+
+        // Trigger lazy countdown → started transition (updates both DB + in-memory)
         $exam->isStarted();
+
+        // Clear poll cache so students also see the transition immediately
+        if ($exam->wasChanged('status')) {
+            Cache::forget("exam.{$exam->id}.poll_status");
+        }
 
         // Cache total questions (doesn't change during exam)
         $totalQuestions = Cache::remember("exam.{$exam->id}.total_questions", 600, function () use ($exam) {
@@ -75,15 +97,22 @@ class AdminDashboardController extends Controller
             return $exam->questions()->sum('points') ?: $exam->questions()->count();
         });
 
+        // Cache point map to compute weighted real-time score correctly.
+        $questionPoints = Cache::remember("exam.{$exam->id}.question_points", 600, function () use ($exam) {
+            return $exam->questions()->pluck('points', 'id')->toArray();
+        });
+
         $students = $exam->sessions()
-            ->whereNotNull('joined_at')
-            ->select('id', 'exam_id', 'user_id', 'joined_at', 'score_integrity', 'score_academic', 'status')
+            ->select('id', 'exam_id', 'user_id', 'start_time', 'joined_at', 'score_integrity', 'score_academic', 'status', 'violation_count', 'created_at')
             ->with([
                 'user:id,name,email',
                 'answers:id,exam_session_id,is_correct,question_id'
             ])
             ->get()
-            ->map(function($session) use ($exam, $totalQuestions, $totalPoints) {
+            ->filter(function ($session) use ($exam) {
+                return $this->shouldDisplayInMonitor((int) $exam->id, $session);
+            })
+            ->map(function($session) use ($exam, $totalQuestions, $totalPoints, $questionPoints) {
                 $answeredCount = $session->answers->count();
                 $correctCount = $session->answers->filter(fn($a) => $a->is_correct)->count();
                 
@@ -91,24 +120,34 @@ class AdminDashboardController extends Controller
                 if ($session->status === 'completed' && $session->score_academic !== null) {
                     $currentScore = $session->score_academic;
                 } else {
-                    // Calculate real-time score estimate
-                    $currentScore = $totalPoints > 0 ? round(($correctCount / $totalQuestions) * 100, 1) : 0;
+                    // Weighted real-time score estimate (uses per-question points)
+                    $earnedPoints = 0;
+                    foreach ($session->answers as $answer) {
+                        if ($answer->is_correct) {
+                            $earnedPoints += (int) ($questionPoints[$answer->question_id] ?? 1);
+                        }
+                    }
+                    $currentScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
                 }
 
                 $timeRemaining = null;
                 if ($exam->status === 'started' && $exam->started_at && $session->status === 'ongoing') {
-                    $endTime = $exam->started_at->addMinutes($exam->duration_minutes);
+                    // copy() avoids mutating $exam->started_at across loop iterations.
+                    $endTime = $exam->started_at->copy()->addMinutes($exam->duration_minutes);
                     $remaining = now()->diffInSeconds($endTime, false);
                     $timeRemaining = (int) max(0, $remaining);
                 }
+
+                $joinedAt = $session->joined_at ?? $session->start_time ?? $session->created_at;
 
                 return [
                     'id' => $session->user->id,
                     'session_id' => $session->id,
                     'name' => $session->user->name,
                     'email' => $session->user->email,
-                    'joined_at' => $session->joined_at->diffForHumans(),
+                    'joined_at' => $joinedAt ? $joinedAt->diffForHumans() : '-',
                     'integrity' => $session->score_integrity,
+                    'violation_count' => $session->violation_count ?? 0,
                     'status' => $session->status,
                     'current_score' => $currentScore,
                     'answered' => $answeredCount,
@@ -140,6 +179,8 @@ class AdminDashboardController extends Controller
             ->firstOrFail();
 
         $session->update(['status' => 'blocked']);
+
+        Cache::forget($this->heartbeatCacheKey((int) $exam->id, (int) $session->id));
 
         // Clear caches so admin monitor and student poll see updated status immediately
         Cache::forget("exam.{$exam->id}.lobby_status");
@@ -188,9 +229,9 @@ class AdminDashboardController extends Controller
             // Update exam status to finished
             $exam->update(['status' => 'finished']);
 
-            // Load questions once
-            $questions = $exam->questions;
-            $totalPoints = $questions->sum('points');
+            // Load questions once (keyed for fast lookups)
+            $questions = $exam->questions()->get()->keyBy('id');
+            $totalPoints = $questions->sum('points') ?: $questions->count();
 
             // Get all ongoing sessions with their answers in ONE query
             $ongoingSessions = ExamSession::where('exam_id', $exam->id)
@@ -202,9 +243,25 @@ class AdminDashboardController extends Controller
             foreach ($ongoingSessions as $session) {
                 $earnedPoints = 0;
                 foreach ($session->answers as $answer) {
-                    if ($answer->is_correct) {
-                        $question = $questions->firstWhere('id', $answer->question_id);
-                        if ($question) $earnedPoints += $question->points;
+                    $question = $questions->get($answer->question_id);
+                    if (!$question) {
+                        continue;
+                    }
+
+                    $isCorrectNow = false;
+                    if (($question->question_type ?? 'multiple_choice') !== 'essay' && $answer->selected_answer) {
+                        $selected = strtolower(trim((string) $answer->selected_answer));
+                        $correct = strtolower(trim((string) $question->correct_answer));
+                        $isCorrectNow = $selected !== '' && $selected === $correct;
+                    }
+
+                    if ($answer->is_correct !== $isCorrectNow) {
+                        $answer->is_correct = $isCorrectNow;
+                        $answer->save();
+                    }
+
+                    if ($isCorrectNow) {
+                        $earnedPoints += ($question->points ?: 1);
                     }
                 }
                 $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
@@ -322,6 +379,8 @@ class AdminDashboardController extends Controller
         Cache::forget("exam.{$exam->id}.lobby_status");
         Cache::forget("exam.{$exam->id}.poll_status");
         Cache::forget("exam.{$exam->id}.questions");
+        Cache::forget("exam.{$exam->id}.questions.ordered");
+        Cache::forget("exam.{$exam->id}.questions.by_id");
         Cache::forget("exam.{$exam->id}.total_questions");
         Cache::forget('admin.exams.list');
 

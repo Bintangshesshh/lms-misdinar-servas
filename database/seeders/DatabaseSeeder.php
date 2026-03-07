@@ -13,13 +13,16 @@ class DatabaseSeeder extends Seeder
         // Create Admin User only
         // Students and questions will be added via Admin Panel
         
-        User::create([
-            'name' => 'admin',
-            'full_name' => 'Administrator Misdinar',
-            'email' => 'admin@misdinar.com',
-            'password' => Hash::make('admin123'),
-            'role' => 'admin',
-        ]);
+        // Idempotent seeding: safe to run multiple times without duplicate key errors.
+        User::updateOrCreate(
+            ['email' => 'admin@misdinar.com'],
+            [
+                'name' => 'admin',
+                'full_name' => 'Administrator Misdinar',
+                'password' => Hash::make('admin123'),
+                'role' => 'admin',
+            ]
+        );
 
         $this->command->info("==========================================");
         $this->command->info("  LMS MISDINAR - Database Ready!");

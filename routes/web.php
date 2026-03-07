@@ -38,11 +38,17 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
     Route::get('/exam/{exam}/lobby', [ExamLobbyController::class, 'studentLobby'])->name('exam.lobby');
     Route::post('/exam/{exam}/join', [ExamLobbyController::class, 'joinLobby'])->name('exam.join');
     Route::get('/exam/{exam}/take', [ExamLobbyController::class, 'takeExam'])->name('exam.take');
-    Route::post('/exam/{exam}/save-answer', [ExamLobbyController::class, 'saveAnswer'])->name('exam.saveAnswer');
+    Route::post('/exam/{exam}/save-answer', [ExamLobbyController::class, 'saveAnswer'])
+        ->middleware('throttle:exam-save-answer')
+        ->name('exam.saveAnswer');
     Route::post('/exam/{exam}/submit', [ExamLobbyController::class, 'submitExam'])->name('exam.submit');
     Route::get('/exam/{exam}/result', [ExamLobbyController::class, 'examResult'])->name('exam.result');
-    Route::post('/integrity/log-violation', [\App\Http\Controllers\Api\IntegrityController::class, 'logViolation'])->name('integrity.logViolation');
-    Route::get('/integrity/status/{session_id}', [\App\Http\Controllers\Api\IntegrityController::class, 'getStatus'])->name('integrity.status');
+    Route::post('/integrity/log-violation', [\App\Http\Controllers\Api\IntegrityController::class, 'logViolation'])
+        ->middleware('throttle:integrity-log')
+        ->name('integrity.logViolation');
+    Route::get('/integrity/status/{session_id}', [\App\Http\Controllers\Api\IntegrityController::class, 'getStatus'])
+        ->middleware('throttle:exam-poll')
+        ->name('integrity.status');
 });
 
 // Admin Routes
@@ -79,7 +85,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/exam/{exam}/export', [AdminDashboardController::class, 'exportResult'])->name('exam.export');
 
     // Polling endpoints (JSON) - Higher rate limit for monitoring
-    Route::get('/exam/{exam}/lobby-status', [AdminDashboardController::class, 'lobbyStatus'])->name('exam.lobbyStatus');
+    Route::get('/exam/{exam}/lobby-status', [AdminDashboardController::class, 'lobbyStatus'])
+        ->middleware('throttle:admin-monitor')
+        ->name('exam.lobbyStatus');
 
     // Question management
     Route::get('/questions', [QuestionController::class, 'index'])->name('questions.index');
@@ -96,7 +104,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
 // Student polling endpoint - No group throttle (polling is already cached server-side)
 Route::middleware(['auth', 'role:student'])->group(function () {
-    Route::get('/api/exam/{exam}/poll-status', [ExamLobbyController::class, 'pollStatus'])->name('exam.pollStatus');
+    Route::get('/api/exam/{exam}/poll-status', [ExamLobbyController::class, 'pollStatus'])
+        ->middleware('throttle:exam-poll')
+        ->name('exam.pollStatus');
 });
 
 require __DIR__.'/auth.php';

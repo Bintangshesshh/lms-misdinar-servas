@@ -23,23 +23,42 @@
                     {{-- Status Badge --}}
                     <div class="flex items-center justify-between mb-3 sm:mb-4 gap-2">
                         <span class="px-2 sm:px-3 py-1 text-xs font-semibold rounded-full whitespace-nowrap
-                            @if($exam->status === 'lobby') bg-yellow-100 text-yellow-800
+                            @if($exam->status === 'lobby' || $exam->status === 'countdown') bg-yellow-100 text-yellow-800
                             @elseif($exam->status === 'started') bg-green-100 text-green-800
                             @else bg-gray-100 text-gray-800 @endif">
-                            {{ $exam->status === 'lobby' ? 'Lobby Terbuka' : ($exam->status === 'started' ? 'Sedang Berlangsung' : ($exam->status === 'finished' ? 'Selesai' : ucfirst($exam->status))) }}
+                            {{ $exam->status === 'lobby' ? 'Lobby Terbuka' : ($exam->status === 'countdown' ? 'Segera Dimulai' : ($exam->status === 'started' ? 'Sedang Berlangsung' : ($exam->status === 'finished' ? 'Selesai' : ucfirst($exam->status)))) }}
                         </span>
                         <span class="text-xs sm:text-sm text-gray-500 whitespace-nowrap">{{ $exam->duration_minutes }} menit</span>
                     </div>
 
                     <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{{ $exam->title }}</h3>
 
-                    @if($exam->status === 'lobby')
-                        <form action="{{ route('student.exam.join', $exam) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="w-full mt-3 sm:mt-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 sm:py-3 px-4 rounded-lg transition-colors text-sm sm:text-base touch-manipulation">
-                                Masuk Lobby
-                            </button>
-                        </form>
+                    @if($exam->status === 'lobby' || $exam->status === 'countdown')
+                        @php $mySession = $exam->sessions->where('user_id', Auth::id())->first(); @endphp
+                        @if($mySession && $mySession->status === 'ongoing')
+                            {{-- Already joined — redirect to lobby to wait --}}
+                            <a href="{{ route('student.exam.lobby', $exam) }}"
+                               class="block w-full mt-3 sm:mt-4 bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-white font-medium py-2.5 sm:py-3 px-4 rounded-lg transition-colors text-center text-sm sm:text-base touch-manipulation">
+                                Kembali ke Lobby
+                            </a>
+                        @elseif($mySession && $mySession->status === 'completed')
+                            <a href="{{ route('student.exam.result', $exam) }}"
+                               class="block w-full mt-3 sm:mt-4 bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white font-medium py-2.5 sm:py-3 px-4 rounded-lg transition-colors text-center text-sm sm:text-base touch-manipulation">
+                                Lihat Hasil
+                            </a>
+                        @elseif($mySession && $mySession->status === 'blocked')
+                            <div class="mt-3 sm:mt-4 bg-red-50 border border-red-200 rounded-lg p-2.5 sm:p-3 text-center">
+                                <p class="text-xs sm:text-sm text-red-700 font-semibold">Akses Di-blokir</p>
+                                <p class="text-xs text-red-500 mt-1">Menunggu admin mengizinkan kembali</p>
+                            </div>
+                        @else
+                            <form action="{{ route('student.exam.join', $exam) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="w-full mt-3 sm:mt-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 sm:py-3 px-4 rounded-lg transition-colors text-sm sm:text-base touch-manipulation">
+                                    Masuk Lobby
+                                </button>
+                            </form>
+                        @endif
                     @elseif($exam->status === 'started')
                         @php
                             $mySession = $exam->sessions->where('user_id', Auth::id())->first();

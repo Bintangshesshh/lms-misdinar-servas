@@ -271,11 +271,25 @@ class ExamLobbyController extends Controller
                 ->lockForUpdate()
                 ->first();
 
+            $didChange = false;
+
             if ($answer) {
-                $answer->selected_answer = $selectedAnswer;
-                $answer->answer_text = $answerText;
-                $answer->is_correct = $isCorrect;
-                $answer->save();
+                $currentSelected = $answer->selected_answer ? strtolower(trim((string) $answer->selected_answer)) : null;
+                $currentText = trim((string) ($answer->answer_text ?? ''));
+                $currentText = $currentText === '' ? null : $currentText;
+                $currentCorrect = (bool) $answer->is_correct;
+
+                $samePayload = $currentSelected === $selectedAnswer
+                    && $currentText === $answerText
+                    && $currentCorrect === (bool) $isCorrect;
+
+                if (!$samePayload) {
+                    $answer->selected_answer = $selectedAnswer;
+                    $answer->answer_text = $answerText;
+                    $answer->is_correct = $isCorrect;
+                    $answer->save();
+                    $didChange = true;
+                }
             } else {
                 $answer = StudentAnswer::create([
                     'exam_session_id' => $session->id,
@@ -284,6 +298,12 @@ class ExamLobbyController extends Controller
                     'answer_text' => $answerText,
                     'is_correct' => $isCorrect,
                 ]);
+                $didChange = true;
+            }
+
+            // Keep admin monitor score estimate up to date only when answer actually changed.
+            if ($didChange) {
+                Cache::forget("exam.{$exam->id}.earned_points");
             }
 
             // Use cached total instead of querying
@@ -390,6 +410,7 @@ class ExamLobbyController extends Controller
             ]);
 
             $this->clearSessionHeartbeat((int) $exam->id, (int) $session->id);
+            Cache::forget("exam.{$exam->id}.earned_points");
 
             return redirect()->route('student.exam.result', $exam)
                 ->with('success', 'Ujian telah diselesaikan!');
@@ -415,6 +436,8 @@ class ExamLobbyController extends Controller
 
         $correctAnswers = 0;
         $totalScoredQuestions = $questions->filter(fn($q) => $q->isMultipleChoice())->count();
+        $totalPoints = $questions->sum('points') ?: $questions->count();
+        $earnedPoints = 0;
 
         foreach ($questions as $question) {
             if (!$question->isMultipleChoice()) {
@@ -430,7 +453,17 @@ class ExamLobbyController extends Controller
             $correct = strtolower(trim((string) $question->correct_answer));
             if ($selected !== '' && $selected === $correct) {
                 $correctAnswers++;
+                $earnedPoints += ($question->points ?: 1);
             }
+        }
+
+        $computedAcademicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
+
+        // Heal stale/missing academic score (e.g. interrupted force-stop scoring).
+        $storedAcademicScore = $session->score_academic;
+        if ($storedAcademicScore === null || (((float) $storedAcademicScore) <= 0.0 && $earnedPoints > 0)) {
+            $session->score_academic = $computedAcademicScore;
+            $session->save();
         }
 
         return view('student.exam-result', compact('exam', 'session', 'questions', 'answers', 'correctAnswers', 'totalScoredQuestions'));
@@ -462,8 +495,8 @@ class ExamLobbyController extends Controller
 
     /**
      * Polling endpoint for students to check exam status.
-     * Cached per-exam for 2 seconds (shared by all students in same exam).
-     * Student-specific data (session status) checked separately with lightweight query.
+      * Uses fresh exam status for immediate countdown/start transitions.
+      * Student-specific data (session status) checked separately with lightweight query.
      */
     public function pollStatus(Exam $exam)
     {

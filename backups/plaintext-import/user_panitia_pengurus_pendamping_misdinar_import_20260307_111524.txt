@@ -1,0 +1,59 @@
+username,nama_lengkap,email,password,kelas,lingkungan,asal_sekolah
+Caecilia,Caecilia Kinanti,kinan@email.com,Password,-,-,-
+Monic,Monic De lischa,monic@email.com,Password,-,-,-
+Masayu,Masayu Kezia,kezia@email.com,Password,-,-,-
+Brigitta,Brigitta Trikisie,kinkin@email.com,Password,-,-,-
+Margaretha,Margaretha Olinda,olin@email.com,Password,-,-,-
+Gabriella,Gabriella Florestella,geby@emai.com,Password,-,-,-
+Lamhot,Lamhot Elena,elana@email.com,Password,-,-,-
+Raymundus,Raymundus Lionel Andro,andro@email.com,Password,-,-,-
+Benediktus,Benediktus Bintang,bintang@email.com,Password,-,-,-
+Cecilia,Cecilia Pina,pina@email.com,Password,-,-,-
+Theresia,Theresia Chelsea Kuki,chelsea@email.com,Password,-,-,-
+Maria,Maria Zanetha,zanetha@email.com,Password,-,-,-
+Laurentius,Laurentius Patrick,patrick@email.com,Password,-,-,-
+Andreas,Andreas Adighuna,andreas@email.com,Password,-,-,-
+Klaudius,Klaudius Gilang,gilang@email.com,Password,-,-,-
+Kristoforus,Kristoforus Geronimo,gero@email.com,Password,-,-,-
+Nathanael,Nathanael Yosia,nathan@email.com,Password,-,-,-
+Calista,Calista,calista@email.com,Password,-,-,-
+Aning,Aning,aning@email.com,Password,-,-,-
+Seby,Seby,seby@email.com,Password,-,-,-
+Cathrine,Cathrine,cetherine@email.com,Password,-,-,-
+Vio,Vio,vio@email.com,Password,-,-,-
+Gladis,Gladis,gladiz@email.com,Password,-,-,-
+Aurora,Aurora,aurora@email.com,Password,-,-,-
+Gema,Gema,gemma@email.com,Password,-,-,-
+Alma,Alma,alma@email.com,Password,-,-,-
+Noel,Noel,noel@email.com,Password,-,-,-
+Erina,Erina,erinna@email.com,Password,-,-,-
+Luna,Luna,luna@email.com,Password,-,-,-
+Cherlyn,Cherlyn,cherlyn@email.com,Password,-,-,-
+Tata,Tata,tata@email.com,Password,-,-,-
+Celine,Celine,celine@email.com,Password,-,-,-
+Oline,Oline,oline@email.com,Password,-,-,-
+Bagas,Bagas,bagas@email.com,Password,-,-,-
+Putra,Putra,daput@email.com,Password,-,-,-
+Albert,Albert,albert@email.com,Password,-,-,-
+Tasya,Tasya Andini,tasya@email.com,Password,-,-,-
+Brigitta,Brigitta Anastasya,brigitta@email.com,Password,-,-,-
+Leo,Ka Leo,leo@email.com,Password,-,-,-
+Teo,Ka Teo,teo@email.com,Password,-,-,-
+Sabin,Ka Sabin,sabin@email.com,Password,-,-,-
+Cia,Ka Cia,cia@email.com,Password,-,-,-
+Aji,Ka Aji,aji@email.com,Password,-,-,-
+Vicky,Ka Vicky,vicky@email.com,Password,-,-,-
+Rama,Ka Rama,rama@email.com,Password,-,-,-
+Andi,Ka Andi,andi@email.com,Password,-,-,-
+Erica,Ka Erica,erica@email.com,Password,-,-,-
+Ico,Ka Ico,ico@email.com,Password,-,-,-
+Stella,Ka Stella,stella@email.com,Password,-,-,-
+Oliv,Ka Oliv,oliv@email.com,Password,-,-,-
+Melisa,Ka Melisa,melisa@email.com,Password,-,-,-
+Yogi,Ka Yogi,yogi@email.com,Password,-,-,-
+Aurel,Ka Aurel Larosa,aurellarosa@email.com,Password,-,-,-
+Maria,Ka Maria Aurel,mariaaurel@email.com,Password,-,-,-
+Dian,Ka Dian Putri,dian@email.com,Password,-,-,-
+Ratih,Ka Ratih,ratih@email.com,Password,-,-,-
+Helena,Ka Helena,helena@email.com,Password,-,-,-
+Aegis,Ka Aegis,aegis@email.com,Password,-,-,-

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Exam;
 use App\Models\ExamSession;
+use App\Models\StudentAnswer;
 use App\Exports\ExamResultExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -18,6 +19,12 @@ class AdminDashboardController extends Controller
     private function shouldDisplayInMonitor(int $examId, ExamSession $session): bool
     {
         if ($session->status !== 'ongoing') {
+            return true;
+        }
+
+        // Never hide active sessions that already have join/start timestamps.
+        // Heartbeat is only a fallback signal for legacy/incomplete rows.
+        if ($session->joined_at || $session->start_time) {
             return true;
         }
 
@@ -54,10 +61,27 @@ class AdminDashboardController extends Controller
 
     public function startExam(Exam $exam)
     {
-        $exam->update([
-            'status' => 'countdown',
-            'started_at' => now()->addSeconds(5),
-        ]);
+        $exam->refresh();
+
+        if ($exam->status !== 'lobby') {
+            return back()->with('error', 'Ujian hanya bisa dimulai saat status lobby.');
+        }
+
+        if (!$exam->questions()->exists()) {
+            return back()->with('error', 'Ujian belum memiliki soal. Tambahkan soal terlebih dahulu.');
+        }
+
+        // Atomic status transition to prevent duplicate concurrent starts.
+        $updated = Exam::whereKey($exam->id)
+            ->where('status', 'lobby')
+            ->update([
+                'status' => 'countdown',
+                'started_at' => now()->addSeconds(5),
+            ]);
+
+        if (!$updated) {
+            return back()->with('error', 'Ujian sedang diproses atau sudah dimulai. Silakan refresh monitor.');
+        }
 
         // No blocking dispatch needed - isStarted() handles lazy transition
         // When anyone checks exam status after 5 seconds, it auto-updates to 'started'
@@ -97,38 +121,46 @@ class AdminDashboardController extends Controller
             return $exam->questions()->sum('points') ?: $exam->questions()->count();
         });
 
-        // Cache point map to compute weighted real-time score correctly.
-        $questionPoints = Cache::remember("exam.{$exam->id}.question_points", 600, function () use ($exam) {
-            return $exam->questions()->pluck('points', 'id')->toArray();
+        // Aggregate earned points by session with a lightweight grouped query.
+        // Short cache reduces DB pressure while keeping monitor near real-time.
+        $earnedPointsBySession = Cache::remember("exam.{$exam->id}.earned_points", 2, function () use ($exam) {
+            return StudentAnswer::query()
+                ->join('questions', 'student_answers.question_id', '=', 'questions.id')
+                ->join('exam_sessions', 'student_answers.exam_session_id', '=', 'exam_sessions.id')
+                ->where('exam_sessions.exam_id', $exam->id)
+                ->where('student_answers.is_correct', true)
+                ->groupBy('student_answers.exam_session_id')
+                ->selectRaw('student_answers.exam_session_id as session_id, SUM(COALESCE(questions.points, 1)) as earned_points')
+                ->pluck('earned_points', 'session_id');
         });
 
         $students = $exam->sessions()
             ->select('id', 'exam_id', 'user_id', 'start_time', 'joined_at', 'score_integrity', 'score_academic', 'status', 'violation_count', 'created_at')
             ->with([
                 'user:id,name,email',
-                'answers:id,exam_session_id,is_correct,question_id'
+            ])
+            ->withCount([
+                'answers as answered_count' => function ($q) {
+                    $q->where(function ($inner) {
+                        $inner->whereNotNull('selected_answer')
+                            ->orWhereNotNull('answer_text');
+                    });
+                },
+                'answers as correct_count' => function ($q) {
+                    $q->where('is_correct', true);
+                },
             ])
             ->get()
             ->filter(function ($session) use ($exam) {
                 return $this->shouldDisplayInMonitor((int) $exam->id, $session);
             })
-            ->map(function($session) use ($exam, $totalQuestions, $totalPoints, $questionPoints) {
-                $answeredCount = $session->answers->count();
-                $correctCount = $session->answers->filter(fn($a) => $a->is_correct)->count();
+            ->map(function($session) use ($exam, $totalPoints, $earnedPointsBySession) {
+                $answeredCount = (int) ($session->answered_count ?? 0);
+                $correctCount = (int) ($session->correct_count ?? 0);
                 
-                // Real-time score estimate (during exam) or final score (after completion)
-                if ($session->status === 'completed' && $session->score_academic !== null) {
-                    $currentScore = $session->score_academic;
-                } else {
-                    // Weighted real-time score estimate (uses per-question points)
-                    $earnedPoints = 0;
-                    foreach ($session->answers as $answer) {
-                        if ($answer->is_correct) {
-                            $earnedPoints += (int) ($questionPoints[$answer->question_id] ?? 1);
-                        }
-                    }
-                    $currentScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
-                }
+                // Always derive score from current answers to avoid stale/null score mismatch.
+                $earnedPoints = (float) ($earnedPointsBySession[$session->id] ?? 0);
+                $currentScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
 
                 $timeRemaining = null;
                 if ($exam->status === 'started' && $exam->started_at && $session->status === 'ongoing') {
@@ -225,58 +257,78 @@ class AdminDashboardController extends Controller
      */
     public function stopExam(Request $request, Exam $exam)
     {
-        \Illuminate\Support\Facades\DB::transaction(function () use ($exam) {
-            // Update exam status to finished
+        $stopTime = now();
+
+        // Freeze exam + sessions first so no further saveAnswer can mutate ongoing attempts.
+        $ongoingSessionIds = \Illuminate\Support\Facades\DB::transaction(function () use ($exam, $stopTime) {
             $exam->update(['status' => 'finished']);
 
+            $sessionIds = ExamSession::where('exam_id', $exam->id)
+                ->where('status', 'ongoing')
+                ->pluck('id');
+
+            if ($sessionIds->isNotEmpty()) {
+                ExamSession::whereIn('id', $sessionIds)
+                    ->update([
+                        'status' => 'completed',
+                        'end_time' => $stopTime,
+                    ]);
+            }
+
+            return $sessionIds;
+        });
+
+        if ($ongoingSessionIds->isNotEmpty()) {
             // Load questions once (keyed for fast lookups)
             $questions = $exam->questions()->get()->keyBy('id');
             $totalPoints = $questions->sum('points') ?: $questions->count();
 
-            // Get all ongoing sessions with their answers in ONE query
-            $ongoingSessions = ExamSession::where('exam_id', $exam->id)
-                ->where('status', 'ongoing')
-                ->with('answers')
-                ->get();
+            foreach ($ongoingSessionIds->chunk(50) as $chunkIds) {
+                $answersBySession = StudentAnswer::whereIn('exam_session_id', $chunkIds)
+                    ->get(['id', 'exam_session_id', 'question_id', 'selected_answer', 'is_correct'])
+                    ->groupBy('exam_session_id');
 
-            /** @var ExamSession $session */
-            foreach ($ongoingSessions as $session) {
-                $earnedPoints = 0;
-                foreach ($session->answers as $answer) {
-                    $question = $questions->get($answer->question_id);
-                    if (!$question) {
-                        continue;
+                foreach ($chunkIds as $sessionId) {
+                    $sessionAnswers = $answersBySession->get($sessionId, collect());
+                    $earnedPoints = 0;
+
+                    foreach ($sessionAnswers as $answer) {
+                        $question = $questions->get($answer->question_id);
+                        if (!$question) {
+                            continue;
+                        }
+
+                        $isCorrectNow = false;
+                        if (($question->question_type ?? 'multiple_choice') !== 'essay' && $answer->selected_answer) {
+                            $selected = strtolower(trim((string) $answer->selected_answer));
+                            $correct = strtolower(trim((string) $question->correct_answer));
+                            $isCorrectNow = $selected !== '' && $selected === $correct;
+                        }
+
+                        if ($answer->is_correct !== $isCorrectNow) {
+                            StudentAnswer::where('id', $answer->id)->update([
+                                'is_correct' => $isCorrectNow,
+                            ]);
+                        }
+
+                        if ($isCorrectNow) {
+                            $earnedPoints += ($question->points ?: 1);
+                        }
                     }
 
-                    $isCorrectNow = false;
-                    if (($question->question_type ?? 'multiple_choice') !== 'essay' && $answer->selected_answer) {
-                        $selected = strtolower(trim((string) $answer->selected_answer));
-                        $correct = strtolower(trim((string) $question->correct_answer));
-                        $isCorrectNow = $selected !== '' && $selected === $correct;
-                    }
+                    $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
 
-                    if ($answer->is_correct !== $isCorrectNow) {
-                        $answer->is_correct = $isCorrectNow;
-                        $answer->save();
-                    }
-
-                    if ($isCorrectNow) {
-                        $earnedPoints += ($question->points ?: 1);
-                    }
+                    ExamSession::where('id', $sessionId)->update([
+                        'score_academic' => $academicScore,
+                    ]);
                 }
-                $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
-
-                $session->update([
-                    'score_academic' => $academicScore,
-                    'status' => 'completed',
-                    'end_time' => now(),
-                ]);
             }
-        });
+        }
 
         // Clear caches
         Cache::forget("exam.{$exam->id}.lobby_status");
         Cache::forget("exam.{$exam->id}.poll_status");
+        Cache::forget("exam.{$exam->id}.earned_points");
         Cache::forget('admin.exams.list');
 
         return back()->with('success', 'Ujian dihentikan! Semua jawaban siswa telah disimpan dan dinilai.');

@@ -183,12 +183,20 @@
     function startPolling() {
         pollExamStatus();
 
-        polling = setInterval(() => {
-            if (document.hidden || isRedirecting) {
-                return;
-            }
-            pollExamStatus();
-        }, 2000);
+        const scheduleNext = () => {
+            // Spread requests from many clients so they do not hit at exact same millisecond.
+            const nextDelay = 1800 + Math.floor(Math.random() * 1200);
+            polling = setTimeout(() => {
+                if (!document.hidden && !isRedirecting) {
+                    pollExamStatus();
+                }
+                if (!isRedirecting) {
+                    scheduleNext();
+                }
+            }, nextDelay);
+        };
+
+        scheduleNext();
     }
 
     function startCountdown(startedAtIso, forceImmediate) {

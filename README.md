@@ -45,10 +45,10 @@ php artisan serve
 
 ## Deployment 100+ Siswa
 
-Lihat **[DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md)** untuk panduan lengkap:
-- Optimasi Laragon (PHP, MySQL, Apache)
-- Setup Cloudflare Tunnel
-- Tips saat testing berlangsung
+Untuk deploy online production (Hostinger/domain publik), ikuti:
+
+- **[HOSTINGER-DEPLOYMENT.md](HOSTINGER-DEPLOYMENT.md)**
+- Template env production: **[.env.hostinger.example](.env.hostinger.example)**
 
 ## Struktur Aplikasi
 

@@ -1,8 +1,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # If the request is NOT for publicdirectory, route through root index.php
-    RewriteCond %{REQUEST_URI} !^/LMS-Misdinar/public/
+    # If request is not for /public/* assets, route through root index.php
+    # Keep this generic so it works on any domain/folder name.
+    RewriteCond %{REQUEST_URI} !/public/
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ index.php [L,QSA]

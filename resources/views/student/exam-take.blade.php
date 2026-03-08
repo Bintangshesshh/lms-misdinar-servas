@@ -1235,7 +1235,7 @@
     // POLL FOR ADMIN FORCE-STOP
     // Uses visibility-aware polling: pauses when tab is hidden
     // ============================================
-    var pollInterval = null;
+    var pollTimer = null;
 
     function pollExamStatus() {
         if (examEnded) return;
@@ -1287,9 +1287,21 @@
         });
     }
 
-    // Poll every 10 seconds to keep server load lower on 100+ concurrent students.
-    // 100 students × 1 req/10s = 10 req/sec for this endpoint.
-    pollInterval = setInterval(pollExamStatus, 10000);
+    function scheduleExamPoll() {
+        // Jitter avoids request bursts when many devices open exam simultaneously.
+        var delay = 9000 + Math.floor(Math.random() * 3000);
+        pollTimer = setTimeout(function() {
+            if (!examEnded && !document.hidden) {
+                pollExamStatus();
+            }
+            if (!examEnded) {
+                scheduleExamPoll();
+            }
+        }, delay);
+    }
+
+    // Keep average around 10s while spreading concurrent requests.
+    scheduleExamPoll();
     // Also poll immediately when tab becomes visible again
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden && !examEnded) {
@@ -1320,14 +1332,6 @@
     var fullscreenRequested = false;
     var fullscreenEntryShown = false;
 
-    // Safely detect fullscreen support
-    try {
-        fullscreenSupported = !!(document.documentElement.requestFullscreen ||
-                                 document.documentElement.webkitRequestFullscreen ||
-                                 document.documentElement.mozRequestFullScreen ||
-                                 document.documentElement.msRequestFullscreen);
-    } catch(e) { fullscreenSupported = false; }
-
     // ========== MOBILE DETECTION ==========
     var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -1335,6 +1339,16 @@
     var initialWidth = window.innerWidth;
     var initialHeight = window.innerHeight;
     var initialRatio = initialWidth / initialHeight;
+
+    // Safely detect fullscreen support
+    // iOS Safari/WebKit can expose partial fullscreen API but usually cannot
+    // reliably lock arbitrary pages in true fullscreen like desktop/Android.
+    try {
+        fullscreenSupported = !isIOS && !!(document.documentElement.requestFullscreen ||
+                                 document.documentElement.webkitRequestFullscreen ||
+                                 document.documentElement.mozRequestFullScreen ||
+                                 document.documentElement.msRequestFullscreen);
+    } catch(e) { fullscreenSupported = false; }
 
     function reportViolation(type, duration) {
         duration = duration || 0;
@@ -1494,7 +1508,10 @@
         document.getElementById('fullscreen-entry-overlay').classList.add('hidden');
         document.getElementById('split-screen-overlay').classList.add('hidden');
 
-        if (pollInterval) clearInterval(pollInterval);
+        if (pollTimer) {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+        }
 
         var reinstateInterval = setInterval(function() {
             fetch(POLL_URL, {
@@ -1647,6 +1664,10 @@
 
     function safeRequestFullscreen() {
         // Always returns a proper Promise, even for prefixed methods
+        if (!fullscreenSupported) {
+            return Promise.resolve(false);
+        }
+
         var elem = document.documentElement;
         try {
             var result;
@@ -1731,6 +1752,12 @@
     // ===== FULLSCREEN ENTRY OVERLAY =====
     // Show overlay on page load — user must click to enter fullscreen (provides gesture)
     function showFullscreenEntry() {
+        if (!fullscreenSupported) {
+            // Skip fullscreen entry gate on unsupported browsers (e.g. iOS Safari).
+            fullscreenRequested = false;
+            return;
+        }
+
         if (fullscreenSupported && !checkFullscreen()) {
             document.getElementById('fullscreen-entry-overlay').classList.remove('hidden');
             fullscreenEntryShown = true;

@@ -23,32 +23,40 @@ class ExamResultExport
 
     private function headerStyle(): Style
     {
-        return new Style(
-            fontBold: true,
-            fontSize: 11,
-            fontColor: Color::WHITE,
-            backgroundColor: '4472C4',
-        );
+        return (new Style())
+            ->setFontBold()
+            ->setFontSize(11)
+            ->setFontColor(Color::WHITE)
+            ->setBackgroundColor('4472C4');
     }
 
     private function titleStyle(): Style
     {
-        return new Style(fontBold: true, fontSize: 14);
+        return (new Style())
+            ->setFontBold()
+            ->setFontSize(14);
     }
 
     private function keyStyle(): Style
     {
-        return new Style(fontBold: true, fontSize: 10, backgroundColor: 'E2EFDA');
+        return (new Style())
+            ->setFontBold()
+            ->setFontSize(10)
+            ->setBackgroundColor('E2EFDA');
     }
 
     private function sectionStyle(): Style
     {
-        return new Style(fontBold: true, backgroundColor: 'D9E2F3');
+        return (new Style())
+            ->setFontBold()
+            ->setBackgroundColor('D9E2F3');
     }
 
     private function terminatedStyle(): Style
     {
-        return new Style(fontBold: true, backgroundColor: 'FCE4EC');
+        return (new Style())
+            ->setFontBold()
+            ->setBackgroundColor('FCE4EC');
     }
 
     public function export(): string
@@ -78,6 +86,85 @@ class ExamResultExport
             $terminatedCounts[$session->id] = $session->violation_count ?? 0;
         }
 
+        // Canonical scoring snapshot used by all sheets so Excel stays consistent.
+        $questionsById = $questions->keyBy('id');
+        $totalQuestions = (int) $questions->count();
+        $totalPoints = (int) ($questions->sum('points') ?: $questions->count());
+
+        $questionStats = [];
+        foreach ($questions as $q) {
+            $questionStats[$q->id] = [
+                'answered' => 0,
+                'correct' => 0,
+                'wrong' => 0,
+                'essay_answered' => 0,
+            ];
+        }
+
+        $sessionMetrics = [];
+        foreach ($sessions as $session) {
+            $answers = $allAnswers->get($session->id, collect());
+
+            $correctCount = 0;
+            $wrongCount = 0;
+            $essayCount = 0;
+            $answeredCount = 0;
+            $earnedPoints = 0;
+
+            foreach ($answers as $ans) {
+                $q = $questionsById->get($ans->question_id);
+                if (!$q) {
+                    continue;
+                }
+
+                if ($q->question_type === 'essay') {
+                    $essayText = trim((string) ($ans->answer_text ?? ''));
+                    if ($essayText !== '') {
+                        $essayCount++;
+                        $answeredCount++;
+                        $questionStats[$q->id]['essay_answered']++;
+                    }
+                    continue;
+                }
+
+                $selected = strtolower(trim((string) ($ans->selected_answer ?? '')));
+                if ($selected === '') {
+                    continue;
+                }
+
+                $answeredCount++;
+                $questionStats[$q->id]['answered']++;
+
+                $correct = strtolower(trim((string) ($q->correct_answer ?? '')));
+                $isCorrect = $selected === $correct;
+
+                if ($isCorrect) {
+                    $correctCount++;
+                    $earnedPoints += (int) ($q->points ?: 1);
+                    $questionStats[$q->id]['correct']++;
+                } else {
+                    $wrongCount++;
+                    $questionStats[$q->id]['wrong']++;
+                }
+            }
+
+            $unanswered = max(0, $totalQuestions - $answeredCount);
+            $academicScore = $session->score_academic;
+            if ($academicScore === null || ((float) $academicScore) <= 0.0 && $earnedPoints > 0) {
+                $academicScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
+            }
+
+            $sessionMetrics[$session->id] = [
+                'correct_count' => $correctCount,
+                'wrong_count' => $wrongCount,
+                'essay_count' => $essayCount,
+                'answered_count' => $answeredCount,
+                'unanswered_count' => $unanswered,
+                'earned_points' => $earnedPoints,
+                'academic_score' => (float) $academicScore,
+            ];
+        }
+
         $filename = 'Laporan_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $exam->title) . '_' . now()->format('Y-m-d_His') . '.xlsx';
         $filePath = storage_path('app/' . $filename);
 
@@ -90,7 +177,7 @@ class ExamResultExport
         // ============================================
         $writer->getCurrentSheet()->setName('Ringkasan');
 
-        $writer->addRow(Row::fromValuesWithStyle(['LAPORAN UJIAN: ' . $exam->title], $this->titleStyle()));
+        $writer->addRow(Row::fromValues(['LAPORAN UJIAN: ' . $exam->title], $this->titleStyle()));
         $writer->addRow(Row::fromValues(['Tanggal: ' . now()->format('d/m/Y H:i')]));
         $writer->addRow(Row::fromValues(['Durasi: ' . $exam->duration_minutes . ' menit']));
         $writer->addRow(Row::fromValues(['Jumlah Soal: ' . $questions->count()]));
@@ -108,22 +195,18 @@ class ExamResultExport
             'Fullscreen Exit', 'Resize/Split',
             'Waktu Join', 'Waktu Selesai',
         ];
-        $writer->addRow(Row::fromValuesWithStyle($headers, $this->headerStyle()));
+        $writer->addRow(Row::fromValues($headers, $this->headerStyle()));
 
         $no = 1;
         foreach ($sessions as $session) {
-            $answers = $allAnswers->get($session->id, collect());
-
-            $correctCount = $answers->filter(fn($a) => $a->is_correct)->count();
-            $wrongCount = $answers->filter(fn($a) => !$a->is_correct && $a->selected_answer !== null)->count();
-            $essayCount = $answers->filter(fn($a) => $a->answer_text !== null && $a->selected_answer === null)->count();
-            $unanswered = $questions->count() - $answers->count();
-
-            $earnedPoints = 0;
-            foreach ($answers->filter(fn($a) => $a->is_correct) as $ans) {
-                $q = $questions->firstWhere('id', $ans->question_id);
-                if ($q) $earnedPoints += $q->points;
-            }
+            $metrics = $sessionMetrics[$session->id] ?? [
+                'correct_count' => 0,
+                'wrong_count' => 0,
+                'essay_count' => 0,
+                'unanswered_count' => $totalQuestions,
+                'earned_points' => 0,
+                'academic_score' => 0,
+            ];
 
             $cheatLogs = $session->cheatLogs;
             $tabSwitch = $cheatLogs->where('violation_type', 'tab_switch')->count();
@@ -149,13 +232,13 @@ class ExamResultExport
                 $session->user->lingkungan ?? '-',
                 $session->user->asal_sekolah ?? '-',
                 $statusLabels[$session->status] ?? $session->status,
-                $session->score_academic ?? 0,
+                $metrics['academic_score'],
                 $session->score_integrity,
-                $correctCount,
-                $wrongCount,
-                $essayCount,
-                $unanswered,
-                $earnedPoints,
+                $metrics['correct_count'],
+                $metrics['wrong_count'],
+                $metrics['essay_count'],
+                $metrics['unanswered_count'],
+                $metrics['earned_points'],
                 $session->violation_count ?? 0,
                 $cheatLogs->count(),
                 $tabSwitch,
@@ -169,7 +252,7 @@ class ExamResultExport
             ];
 
             if ($session->status === 'blocked') {
-                $writer->addRow(Row::fromValuesWithStyle($row, $this->terminatedStyle()));
+                $writer->addRow(Row::fromValues($row, $this->terminatedStyle()));
             } else {
                 $writer->addRow(Row::fromValues($row));
             }
@@ -181,7 +264,7 @@ class ExamResultExport
         $sheet2 = $writer->addNewSheetAndMakeItCurrent();
         $sheet2->setName('Detail Jawaban');
 
-        $writer->addRow(Row::fromValuesWithStyle(['DETAIL JAWABAN PER SOAL'], $this->titleStyle()));
+        $writer->addRow(Row::fromValues(['DETAIL JAWABAN PER SOAL'], $this->titleStyle()));
         $writer->addRow(Row::fromValues(['Ujian: ' . $exam->title]));
         $writer->addRow(Row::fromValues([]));
 
@@ -191,7 +274,7 @@ class ExamResultExport
         }
         $ansHeaders[] = 'Total Benar';
         $ansHeaders[] = 'Skor Akademik';
-        $writer->addRow(Row::fromValuesWithStyle($ansHeaders, $this->headerStyle()));
+        $writer->addRow(Row::fromValues($ansHeaders, $this->headerStyle()));
 
         $correctRow = ['', '', '', 'KUNCI JAWABAN →'];
         foreach ($questions as $q) {
@@ -203,11 +286,12 @@ class ExamResultExport
         }
         $correctRow[] = '';
         $correctRow[] = '';
-        $writer->addRow(Row::fromValuesWithStyle($correctRow, $this->keyStyle()));
+        $writer->addRow(Row::fromValues($correctRow, $this->keyStyle()));
 
         $no = 1;
         foreach ($sessions as $session) {
             $answers = $allAnswers->get($session->id, collect())->keyBy('question_id');
+            $metrics = $sessionMetrics[$session->id] ?? ['correct_count' => 0, 'academic_score' => 0];
             $row = [
                 $no++,
                 $session->user->full_name ?? $session->user->name ?? '-',
@@ -215,7 +299,6 @@ class ExamResultExport
                 $session->user->email ?? '-',
             ];
 
-            $correct = 0;
             foreach ($questions as $q) {
                 $ans = $answers->get($q->id);
                 if ($q->question_type === 'essay') {
@@ -230,15 +313,16 @@ class ExamResultExport
                     if (!$ans || !$ans->selected_answer) {
                         $row[] = '-';
                     } else {
-                        $letter = strtoupper($ans->selected_answer);
-                        $isCorrect = $ans->is_correct;
+                        $letter = strtoupper((string) $ans->selected_answer);
+                        $selected = strtolower(trim((string) $ans->selected_answer));
+                        $correctAnswer = strtolower(trim((string) ($q->correct_answer ?? '')));
+                        $isCorrect = $selected !== '' && $selected === $correctAnswer;
                         $row[] = $letter . ($isCorrect ? ' ✓' : ' ✗');
-                        if ($isCorrect) $correct++;
                     }
                 }
             }
-            $row[] = $correct;
-            $row[] = $session->score_academic ?? 0;
+            $row[] = $metrics['correct_count'];
+            $row[] = $metrics['academic_score'];
             $writer->addRow(Row::fromValues($row));
         }
 
@@ -248,12 +332,12 @@ class ExamResultExport
         $sheet3 = $writer->addNewSheetAndMakeItCurrent();
         $sheet3->setName('Log Pelanggaran');
 
-        $writer->addRow(Row::fromValuesWithStyle(['LOG PELANGGARAN INTEGRITAS'], $this->titleStyle()));
+        $writer->addRow(Row::fromValues(['LOG PELANGGARAN INTEGRITAS'], $this->titleStyle()));
         $writer->addRow(Row::fromValues(['Ujian: ' . $exam->title]));
         $writer->addRow(Row::fromValues([]));
 
         $logHeaders = ['No', 'Nama Lengkap', 'Kelas', 'Email', 'Jenis Pelanggaran', 'Durasi (detik)', 'Waktu Kejadian'];
-        $writer->addRow(Row::fromValuesWithStyle($logHeaders, $this->headerStyle()));
+        $writer->addRow(Row::fromValues($logHeaders, $this->headerStyle()));
 
         $typeLabels = [
             'tab_switch' => 'Pindah Tab',
@@ -286,17 +370,19 @@ class ExamResultExport
         $sheet4 = $writer->addNewSheetAndMakeItCurrent();
         $sheet4->setName('Statistik');
 
-        $writer->addRow(Row::fromValuesWithStyle(['STATISTIK UJIAN'], $this->titleStyle()));
+        $writer->addRow(Row::fromValues(['STATISTIK UJIAN'], $this->titleStyle()));
         $writer->addRow(Row::fromValues(['Ujian: ' . $exam->title]));
         $writer->addRow(Row::fromValues([]));
 
         $completedSessions = $sessions->where('status', 'completed');
         $blockedSessions = $sessions->where('status', 'blocked');
-        $academicScores = $completedSessions->pluck('score_academic')->filter();
+        $academicScores = $completedSessions->map(function ($session) use ($sessionMetrics) {
+            return (float) ($sessionMetrics[$session->id]['academic_score'] ?? 0);
+        });
         $integrityScores = $sessions->pluck('score_integrity');
         $totalTerminated = array_sum($terminatedCounts);
 
-        $writer->addRow(Row::fromValuesWithStyle(['UMUM', ''], $this->sectionStyle()));
+        $writer->addRow(Row::fromValues(['UMUM', ''], $this->sectionStyle()));
         $writer->addRow(Row::fromValues(['Total Peserta', $sessions->count()]));
         $writer->addRow(Row::fromValues(['Selesai', $completedSessions->count()]));
         $writer->addRow(Row::fromValues(['Terminated (saat ini)', $blockedSessions->count()]));
@@ -310,7 +396,7 @@ class ExamResultExport
             return $s->user->kelas ?? 'Tidak Diketahui';
         });
         if ($kelasGroups->count() > 1) {
-            $writer->addRow(Row::fromValuesWithStyle(['PESERTA PER KELAS', ''], $this->sectionStyle()));
+            $writer->addRow(Row::fromValues(['PESERTA PER KELAS', ''], $this->sectionStyle()));
             foreach ($kelasGroups as $kelas => $group) {
                 $writer->addRow(Row::fromValues(['Kelas ' . $kelas, $group->count() . ' siswa']));
             }
@@ -323,26 +409,26 @@ class ExamResultExport
             return $s->user->lingkungan ?? 'Tidak Diketahui';
         });
         if ($lingkGroups->count() > 1) {
-            $writer->addRow(Row::fromValuesWithStyle(['PESERTA PER LINGKUNGAN', ''], $this->sectionStyle()));
+            $writer->addRow(Row::fromValues(['PESERTA PER LINGKUNGAN', ''], $this->sectionStyle()));
             foreach ($lingkGroups as $lingk => $group) {
                 $writer->addRow(Row::fromValues([$lingk, $group->count() . ' siswa']));
             }
             $writer->addRow(Row::fromValues([]));
         }
 
-        $writer->addRow(Row::fromValuesWithStyle(['SKOR AKADEMIK', ''], $this->sectionStyle()));
+        $writer->addRow(Row::fromValues(['SKOR AKADEMIK', ''], $this->sectionStyle()));
         $writer->addRow(Row::fromValues(['Rata-rata', $academicScores->count() > 0 ? round($academicScores->avg(), 1) : '-']));
         $writer->addRow(Row::fromValues(['Tertinggi', $academicScores->count() > 0 ? $academicScores->max() : '-']));
         $writer->addRow(Row::fromValues(['Terendah', $academicScores->count() > 0 ? $academicScores->min() : '-']));
         $writer->addRow(Row::fromValues([]));
 
-        $writer->addRow(Row::fromValuesWithStyle(['SKOR INTEGRITAS', ''], $this->sectionStyle()));
+        $writer->addRow(Row::fromValues(['SKOR INTEGRITAS', ''], $this->sectionStyle()));
         $writer->addRow(Row::fromValues(['Rata-rata', round($integrityScores->avg(), 1)]));
         $writer->addRow(Row::fromValues(['Tertinggi', $integrityScores->max()]));
         $writer->addRow(Row::fromValues(['Terendah', $integrityScores->min()]));
         $writer->addRow(Row::fromValues([]));
 
-        $writer->addRow(Row::fromValuesWithStyle(['PELANGGARAN', ''], $this->sectionStyle()));
+        $writer->addRow(Row::fromValues(['PELANGGARAN', ''], $this->sectionStyle()));
         $writer->addRow(Row::fromValues(['Total Pelanggaran', $allLogs->count()]));
         $writer->addRow(Row::fromValues(['Pindah Tab', $allLogs->where('violation_type', 'tab_switch')->count()]));
         $writer->addRow(Row::fromValues(['Screenshot', $allLogs->where('violation_type', 'screenshot')->count()]));
@@ -351,23 +437,20 @@ class ExamResultExport
         $writer->addRow(Row::fromValues([]));
 
         // Per-question accuracy
-        $writer->addRow(Row::fromValuesWithStyle(['AKURASI PER SOAL', '', '', '', '', ''], $this->sectionStyle()));
-        $writer->addRow(Row::fromValuesWithStyle(['Soal', 'Pertanyaan', 'Kunci', 'Benar', 'Salah', '% Akurasi'], $this->headerStyle()));
+        $writer->addRow(Row::fromValues(['AKURASI PER SOAL', '', '', '', '', ''], $this->sectionStyle()));
+        $writer->addRow(Row::fromValues(['Soal', 'Pertanyaan', 'Kunci', 'Benar', 'Salah', '% Akurasi'], $this->headerStyle()));
 
-        $sessionIds = $sessions->pluck('id');
         foreach ($questions as $i => $q) {
-            // Use pre-loaded allAnswers to avoid N+1
-            $qAnswers = collect();
-            foreach ($allAnswers as $sessId => $sessAnswers) {
-                if ($sessionIds->contains($sessId)) {
-                    $match = $sessAnswers->where('question_id', $q->id);
-                    $qAnswers = $qAnswers->merge($match);
-                }
-            }
+            $qStat = $questionStats[$q->id] ?? [
+                'answered' => 0,
+                'correct' => 0,
+                'wrong' => 0,
+                'essay_answered' => 0,
+            ];
 
             $isEssay = $q->question_type === 'essay';
             if ($isEssay) {
-                $totalAnswered = $qAnswers->whereNotNull('answer_text')->count();
+                $totalAnswered = $qStat['essay_answered'];
                 $writer->addRow(Row::fromValues([
                     'Soal ' . ($i + 1) . ' (Essay)',
                     mb_substr($q->question_text, 0, 80),
@@ -377,9 +460,9 @@ class ExamResultExport
                     $totalAnswered . ' jawaban',
                 ]));
             } else {
-                $totalAnswered = $qAnswers->whereNotNull('selected_answer')->count();
-                $correctCount = $qAnswers->filter(fn($a) => $a->is_correct)->count();
-                $wrongCount = $totalAnswered - $correctCount;
+                $totalAnswered = $qStat['answered'];
+                $correctCount = $qStat['correct'];
+                $wrongCount = $qStat['wrong'];
                 $accuracy = $totalAnswered > 0 ? round(($correctCount / $totalAnswered) * 100, 1) : 0;
 
                 $writer->addRow(Row::fromValues([
@@ -400,7 +483,7 @@ class ExamResultExport
         $sheet5 = $writer->addNewSheetAndMakeItCurrent();
         $sheet5->setName('Jawaban Responden');
 
-        $writer->addRow(Row::fromValuesWithStyle(['JAWABAN RESPONDEN (RAW)'], $this->titleStyle()));
+        $writer->addRow(Row::fromValues(['JAWABAN RESPONDEN (RAW)'], $this->titleStyle()));
         $writer->addRow(Row::fromValues(['Ujian: ' . $exam->title]));
         $writer->addRow(Row::fromValues(['Format: Seperti Google Forms — jawaban asli setiap responden']));
         $writer->addRow(Row::fromValues([]));
@@ -410,14 +493,14 @@ class ExamResultExport
         foreach ($questions as $i => $q) {
             $rawHeaders[] = 'Soal ' . ($i + 1) . ': ' . mb_substr($q->question_text, 0, 60);
         }
-        $writer->addRow(Row::fromValuesWithStyle($rawHeaders, $this->headerStyle()));
+        $writer->addRow(Row::fromValues($rawHeaders, $this->headerStyle()));
 
         // Question type row
         $typeRow = ['', '', '', '', '', ''];
         foreach ($questions as $q) {
             $typeRow[] = $q->question_type === 'essay' ? '[Essay]' : '[Pilihan Ganda]';
         }
-        $writer->addRow(Row::fromValuesWithStyle($typeRow, $this->keyStyle()));
+        $writer->addRow(Row::fromValues($typeRow, $this->keyStyle()));
 
         foreach ($sessions as $session) {
             $answers = $allAnswers->get($session->id, collect())->keyBy('question_id');
@@ -433,7 +516,7 @@ class ExamResultExport
                 $session->user->kelas ?? '-',
                 $session->user->email ?? '-',
                 $statusLabels[$session->status] ?? $session->status,
-                $session->score_academic ?? 0,
+                $sessionMetrics[$session->id]['academic_score'] ?? 0,
                 $session->violation_count ?? 0,
             ];
 

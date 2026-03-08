@@ -430,7 +430,28 @@
         } catch (e) { console.error(e); }
     }
 
+    // Adaptive poll delay (ms): increase interval as student count grows.
+    let pollDelayMs = 2500;
+    let pollTimer = null;
+    let pollInFlight = false;
+
+    function renderEmptyStateHtml() {
+        return `
+            <div class="px-6 py-12 text-center text-gray-400" id="empty-state">
+                <svg class="mx-auto h-10 w-10 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <p>Belum ada siswa yang bergabung</p>
+            </div>
+        `;
+    }
+
     async function pollLobby() {
+        if (pollInFlight) {
+            return;
+        }
+
+        pollInFlight = true;
         try {
             const res = await fetch(lobbyUrl, {
                 credentials: 'same-origin',
@@ -463,9 +484,20 @@
             document.getElementById('student-count').textContent = data.student_count;
             document.getElementById('big-counter').textContent = data.student_count;
 
+            // Dynamic backoff for larger classes to reduce backend pressure.
+            if (data.student_count >= 80) {
+                pollDelayMs = 4500;
+            } else if (data.student_count >= 40) {
+                pollDelayMs = 3500;
+            } else {
+                pollDelayMs = 2500;
+            }
+
             let safe = 0, warning = 0, danger = 0, terminated = 0;
             let totalScore = 0, totalProgress = 0, maxScore = 0;
             let activeStudents = 0;
+            const totalQuestions = Number(data.total_questions || 0);
+            const hasQuestionSet = totalQuestions > 0;
 
             data.students.forEach(s => {
                 const level = getStatusLevel(s.integrity, s.status, s.violation_count);
@@ -477,7 +509,7 @@
                 // Calculate stats for active students only
                 if (s.status === 'ongoing') {
                     totalScore += s.current_score;
-                    totalProgress += (s.answered / data.total_questions) * 100;
+                    totalProgress += hasQuestionSet ? (s.answered / totalQuestions) * 100 : 0;
                     maxScore = Math.max(maxScore, s.current_score);
                     activeStudents++;
                 }
@@ -505,16 +537,39 @@
             if (data.students.length > 0) {
                 if (emptyEl) emptyEl.remove();
                 listEl.innerHTML = data.students.map(renderStudent).join('');
+            } else {
+                listEl.innerHTML = renderEmptyStateHtml();
             }
         } catch (e) {
             console.error('Poll error:', e);
+        } finally {
+            pollInFlight = false;
         }
     }
 
-    pollLobby();
-    // Poll every 2.5s to reduce backend pressure while staying near real-time
-    setInterval(function() {
-        if (!document.hidden) pollLobby();
-    }, 2500);
+    function scheduleNextPoll() {
+        if (pollTimer) {
+            clearTimeout(pollTimer);
+        }
+
+        // Small jitter avoids synchronized bursts after network hiccups.
+        const jitter = Math.floor(Math.random() * 400);
+        pollTimer = setTimeout(function() {
+            if (!document.hidden) {
+                pollLobby().finally(scheduleNextPoll);
+                return;
+            }
+
+            scheduleNextPoll();
+        }, pollDelayMs + jitter);
+    }
+
+    pollLobby().finally(scheduleNextPoll);
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            pollLobby();
+        }
+    });
 </script>
 @endsection

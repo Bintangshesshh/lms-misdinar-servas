@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'LMS Misdinar')</title>
-    <link rel="stylesheet" href="{{ asset('build/assets/app-nBeFMyzn.css') }}">
-    <script src="{{ asset('build/assets/app-CBbTb_k3.js') }}" defer></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-50 min-h-screen">
     {{-- Navbar --}}

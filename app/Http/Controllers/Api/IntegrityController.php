@@ -27,6 +27,23 @@ class IntegrityController extends Controller
             'duration'   => 'required|integer|min:0'
         ]);
 
+        // Server-side dedup: if same session+type was logged within last 10 seconds, return current state without creating a new log
+        $dedupKey = "violation_dedup:{$request->session_id}:{$request->type}";
+        if (Cache::has($dedupKey)) {
+            $session = ExamSession::select('id', 'score_integrity', 'violation_count')
+                ->findOrFail($request->session_id);
+            return response()->json([
+                'status' => 'deduplicated',
+                'current_integrity' => $session->score_integrity,
+                'violation_count' => $session->violation_count,
+                'max_violations' => self::MAX_VIOLATIONS,
+                'remaining_violations' => max(0, self::MAX_VIOLATIONS - $session->violation_count),
+                'terminated' => false,
+                'auto_submit' => false,
+            ]);
+        }
+        Cache::put($dedupKey, true, 10);
+
         return DB::transaction(function () use ($request) {
             $session = ExamSession::where('id', $request->session_id)
                 ->lockForUpdate()

@@ -134,3 +134,13 @@ Cek endpoint ini:
 - Jangan pakai `APP_DEBUG=true` di produksi.
 - Gunakan `database`/`redis` untuk session dan cache.
 - Uji bertahap: 20 -> 50 -> 100 user sebelum hari H.
+
+## 9. Checklist Anti-503 (Hari H Ujian)
+
+- Set `.env`: `APP_ENV=production`, `APP_DEBUG=false`, `EXAM_LOAD_PROFILE=crowded`, `EXAM_MIN_POLL_MS=5000`.
+- Pastikan polling admin tidak di bawah 5 detik (`EXAM_ADMIN_POLL_* >= 5000`).
+- Jalankan cache build sebelum ujian: `php artisan config:cache`, `php artisan route:cache`, `php artisan view:cache`.
+- Pastikan `storage/` dan `bootstrap/cache/` writable.
+- Validasi cepat 2 sisi: 1 akun admin buka monitor + 2 akun siswa aktifkan autosave.
+- Hindari deploy mendadak saat ujian berlangsung.
+- Jika terjadi lonjakan, naikkan polling admin dulu (mis. `EXAM_ADMIN_POLL_RUNNING_LARGE_MS=12000`).

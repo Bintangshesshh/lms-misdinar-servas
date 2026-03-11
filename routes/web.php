@@ -41,6 +41,9 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
     Route::post('/exam/{exam}/save-answer', [ExamLobbyController::class, 'saveAnswer'])
         ->middleware('throttle:exam-save-answer')
         ->name('exam.saveAnswer');
+    Route::post('/exam/{exam}/save-answers-bulk', [ExamLobbyController::class, 'saveAnswersBulk'])
+        ->middleware('throttle:exam-save-bulk')
+        ->name('exam.saveAnswersBulk');
     Route::post('/exam/{exam}/submit', [ExamLobbyController::class, 'submitExam'])->name('exam.submit');
     Route::get('/exam/{exam}/result', [ExamLobbyController::class, 'examResult'])->name('exam.result');
     Route::post('/integrity/log-violation', [\App\Http\Controllers\Api\IntegrityController::class, 'logViolation'])

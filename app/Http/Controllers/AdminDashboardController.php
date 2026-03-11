@@ -121,17 +121,20 @@ class AdminDashboardController extends Controller
             return $exam->questions()->sum('points') ?: $exam->questions()->count();
         });
 
-        // Aggregate earned points by session with a lightweight grouped query.
-        // Short cache reduces DB pressure while keeping monitor near real-time.
-        $earnedPointsBySession = Cache::remember("exam.{$exam->id}.earned_points", 2, function () use ($exam) {
+        // Aggregate answer stats in one grouped query to avoid expensive per-session subqueries.
+        // Uses the same cache key so existing invalidation paths stay compatible.
+        $answerStatsBySession = Cache::remember("exam.{$exam->id}.earned_points", 2, function () use ($exam) {
             return StudentAnswer::query()
-                ->join('questions', 'student_answers.question_id', '=', 'questions.id')
                 ->join('exam_sessions', 'student_answers.exam_session_id', '=', 'exam_sessions.id')
+                ->leftJoin('questions', 'student_answers.question_id', '=', 'questions.id')
                 ->where('exam_sessions.exam_id', $exam->id)
-                ->where('student_answers.is_correct', true)
                 ->groupBy('student_answers.exam_session_id')
-                ->selectRaw('student_answers.exam_session_id as session_id, SUM(COALESCE(questions.points, 1)) as earned_points')
-                ->pluck('earned_points', 'session_id');
+                ->selectRaw('student_answers.exam_session_id as session_id')
+                ->selectRaw('SUM(CASE WHEN student_answers.selected_answer IS NOT NULL OR student_answers.answer_text IS NOT NULL THEN 1 ELSE 0 END) as answered_count')
+                ->selectRaw('SUM(CASE WHEN student_answers.is_correct = 1 THEN 1 ELSE 0 END) as correct_count')
+                ->selectRaw('SUM(CASE WHEN student_answers.is_correct = 1 THEN COALESCE(questions.points, 1) ELSE 0 END) as earned_points')
+                ->get()
+                ->keyBy('session_id');
         });
 
         $students = $exam->sessions()
@@ -139,27 +142,17 @@ class AdminDashboardController extends Controller
             ->with([
                 'user:id,name,email',
             ])
-            ->withCount([
-                'answers as answered_count' => function ($q) {
-                    $q->where(function ($inner) {
-                        $inner->whereNotNull('selected_answer')
-                            ->orWhereNotNull('answer_text');
-                    });
-                },
-                'answers as correct_count' => function ($q) {
-                    $q->where('is_correct', true);
-                },
-            ])
             ->get()
             ->filter(function ($session) use ($exam) {
                 return $this->shouldDisplayInMonitor((int) $exam->id, $session);
             })
-            ->map(function($session) use ($exam, $totalPoints, $earnedPointsBySession) {
-                $answeredCount = (int) ($session->answered_count ?? 0);
-                $correctCount = (int) ($session->correct_count ?? 0);
+            ->map(function($session) use ($exam, $totalPoints, $answerStatsBySession) {
+                $stats = $answerStatsBySession->get((string) $session->id) ?: $answerStatsBySession->get((int) $session->id);
+                $answeredCount = (int) ($stats->answered_count ?? 0);
+                $correctCount = (int) ($stats->correct_count ?? 0);
                 
                 // Always derive score from current answers to avoid stale/null score mismatch.
-                $earnedPoints = (float) ($earnedPointsBySession[$session->id] ?? 0);
+                $earnedPoints = (float) ($stats->earned_points ?? 0);
                 $currentScore = $totalPoints > 0 ? round(($earnedPoints / $totalPoints) * 100, 1) : 0;
 
                 $timeRemaining = null;

@@ -306,19 +306,152 @@ class ExamLobbyController extends Controller
                 Cache::forget("exam.{$exam->id}.earned_points");
             }
 
-            // Use cached total instead of querying
-            $totalQuestions = $questions->count();
-            $answeredCount = StudentAnswer::where('exam_session_id', $session->id)
-                ->where(function($q) {
-                    $q->whereNotNull('selected_answer')->orWhereNotNull('answer_text');
-                })
-                ->count();
-
             return response()->json([
                 'success' => true,
                 'saved_id' => $answer->id,
-                'answered' => $answeredCount,
-                'total' => $totalQuestions,
+            ]);
+        });
+    }
+
+    /**
+     * Save multiple answers in one request to reduce request burst under high concurrency.
+     */
+    public function saveAnswersBulk(Request $request, Exam $exam)
+    {
+        $request->validate([
+            'answers' => 'required|array|min:1|max:20',
+            'answers.*.question_id' => 'required|integer',
+            'answers.*.selected_answer' => 'nullable|in:a,b,c,d',
+            'answers.*.answer_text' => 'nullable|string|max:5000',
+            'answers.*.client_token' => 'nullable|string|max:64',
+        ]);
+
+        $userId = Auth::id();
+
+        return DB::transaction(function () use ($request, $exam, $userId) {
+            $session = ExamSession::where('user_id', $userId)
+                ->where('exam_id', $exam->id)
+                ->where('status', 'ongoing')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$session) {
+                return response()->json(['error' => 'Session not found or expired'], 404);
+            }
+
+            $this->markSessionAlive((int) $exam->id, (int) $session->id);
+
+            $questions = $this->getExamQuestionsById($exam);
+            $entries = collect($request->input('answers', []))->values();
+
+            $questionIds = $entries
+                ->pluck('question_id')
+                ->map(fn($id) => (int) $id)
+                ->filter(fn($id) => $id > 0)
+                ->unique()
+                ->values();
+
+            $existingAnswers = StudentAnswer::where('exam_session_id', $session->id)
+                ->whereIn('question_id', $questionIds)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('question_id');
+
+            $results = [];
+            $savedCount = 0;
+            $didAnyChange = false;
+
+            foreach ($entries as $entry) {
+                $questionId = (int) ($entry['question_id'] ?? 0);
+                $clientToken = isset($entry['client_token']) ? (string) $entry['client_token'] : null;
+
+                $question = $questions->get($questionId);
+                if (!$question) {
+                    $results[] = [
+                        'question_id' => $questionId,
+                        'client_token' => $clientToken,
+                        'success' => false,
+                        'error' => 'question_not_found',
+                    ];
+                    continue;
+                }
+
+                $isCorrect = false;
+                $selectedAnswer = null;
+                $answerText = null;
+
+                if ($question->isEssay()) {
+                    $answerText = trim((string) ($entry['answer_text'] ?? ''));
+                    $answerText = $answerText === '' ? null : $answerText;
+                    $isCorrect = false;
+                } else {
+                    $selectedAnswer = strtolower(trim((string) ($entry['selected_answer'] ?? '')));
+                    if ($selectedAnswer === '') {
+                        $results[] = [
+                            'question_id' => $questionId,
+                            'client_token' => $clientToken,
+                            'success' => false,
+                            'error' => 'selected_answer_required',
+                        ];
+                        continue;
+                    }
+
+                    $correctAnswer = strtolower(trim((string) $question->correct_answer));
+                    $isCorrect = $selectedAnswer === $correctAnswer;
+                }
+
+                $answer = $existingAnswers->get($questionId);
+                $didChange = false;
+
+                if ($answer) {
+                    $currentSelected = $answer->selected_answer ? strtolower(trim((string) $answer->selected_answer)) : null;
+                    $currentText = trim((string) ($answer->answer_text ?? ''));
+                    $currentText = $currentText === '' ? null : $currentText;
+                    $currentCorrect = (bool) $answer->is_correct;
+
+                    $samePayload = $currentSelected === $selectedAnswer
+                        && $currentText === $answerText
+                        && $currentCorrect === (bool) $isCorrect;
+
+                    if (!$samePayload) {
+                        $answer->selected_answer = $selectedAnswer;
+                        $answer->answer_text = $answerText;
+                        $answer->is_correct = $isCorrect;
+                        $answer->save();
+                        $didChange = true;
+                    }
+                } else {
+                    $answer = StudentAnswer::create([
+                        'exam_session_id' => $session->id,
+                        'question_id' => $questionId,
+                        'selected_answer' => $selectedAnswer,
+                        'answer_text' => $answerText,
+                        'is_correct' => $isCorrect,
+                    ]);
+                    $existingAnswers->put($questionId, $answer);
+                    $didChange = true;
+                }
+
+                if ($didChange) {
+                    $savedCount++;
+                    $didAnyChange = true;
+                }
+
+                $results[] = [
+                    'question_id' => $questionId,
+                    'client_token' => $clientToken,
+                    'success' => true,
+                ];
+            }
+
+            if ($didAnyChange) {
+                Cache::forget("exam.{$exam->id}.earned_points");
+            }
+
+            return response()->json([
+                'success' => true,
+                'saved_count' => $savedCount,
+                'results' => $results,
             ]);
         });
     }

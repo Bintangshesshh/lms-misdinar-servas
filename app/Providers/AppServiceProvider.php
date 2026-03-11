@@ -62,17 +62,22 @@ class AppServiceProvider extends ServiceProvider
 
         // Student polling endpoint (status checks).
         RateLimiter::for('exam-poll', function (Request $request) use ($limiterKey) {
-            return Limit::perMinute(240)->by($limiterKey($request));
+            return Limit::perMinute(90)->by($limiterKey($request));
         });
 
         // Auto-save answer endpoint.
         RateLimiter::for('exam-save-answer', function (Request $request) use ($limiterKey) {
-            return Limit::perMinute(600)->by($limiterKey($request));
+            return Limit::perMinute(180)->by($limiterKey($request));
+        });
+
+        // Bulk auto-save endpoint.
+        RateLimiter::for('exam-save-bulk', function (Request $request) use ($limiterKey) {
+            return Limit::perMinute(120)->by($limiterKey($request));
         });
 
         // Integrity logging can spike on device/browser edge cases.
         RateLimiter::for('integrity-log', function (Request $request) use ($limiterKey) {
-            return Limit::perMinute(300)->by($limiterKey($request));
+            return Limit::perMinute(120)->by($limiterKey($request));
         });
 
         // Admin monitor polling endpoint.

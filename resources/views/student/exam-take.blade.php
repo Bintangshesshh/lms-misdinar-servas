@@ -14,30 +14,20 @@
          class="hidden">
     </div>
 
-    {{-- Sticky Top Bar: Timer + Submit --}}
-    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex items-center justify-between sticky top-0 z-40">
-        <div class="flex items-center gap-3">
-            {{-- Timer --}}
-            <div id="timer-display" class="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg font-mono">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    {{-- Sticky Top Bar: Timer + Progress --}}
+    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-200 px-3 py-2.5 flex items-center justify-between sticky top-0 z-40">
+        <div class="flex items-center gap-2">
+            <div id="timer-display" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white rounded-lg font-mono">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
                 <span id="timer-text" class="text-sm font-bold tracking-wider">--:--</span>
             </div>
-            <span class="text-sm text-gray-500 hidden sm:inline">Sisa waktu</span>
+            <span class="text-xs text-gray-400 hidden sm:inline">Sisa waktu</span>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="text-sm text-gray-500">
-                <span id="answered-top" class="font-bold text-indigo-600">{{ count($answers) }}</span>/{{ $questions->count() }} dijawab
-            </span>
-            <button type="button" id="btn-submit-sticky"
-                    class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                Kumpulkan
-            </button>
-        </div>
+        <span class="text-sm text-gray-500">
+            <span id="answered-top" class="font-bold text-indigo-600">{{ count($answers) }}</span>/{{ $questions->count() }} dijawab
+        </span>
     </div>
 
     {{-- Force-stop banner (hidden) --}}
@@ -131,18 +121,20 @@
     </div>
 
     {{-- Violation Counter Bar --}}
-    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-gray-700">Pelanggaran</span>
-            <span id="integrity-score" class="text-sm font-bold text-green-600">
+    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
+        <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs sm:text-sm font-medium text-gray-700">Pelanggaran</span>
+            <span id="integrity-score" class="text-xs sm:text-sm font-bold text-green-600">
                 <span id="violation-count-text">{{ $session->violation_count ?? 0 }}</span> / 5 pelanggaran
             </span>
         </div>
-        <div class="w-full bg-gray-200 rounded-full h-3">
-            <div id="integrity-bar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: {{ (($session->violation_count ?? 0) / 5) * 100 }}%"></div>
+        <div class="w-full bg-gray-200 rounded-full h-2 sm:h-3">
+            <div id="integrity-bar" class="bg-green-500 h-2 sm:h-3 rounded-full transition-all duration-500" style="width: {{ (($session->violation_count ?? 0) / 5) * 100 }}%"></div>
         </div>
-        <p class="text-xs text-gray-400 mt-1">Jika mencapai 5 pelanggaran, ujian akan otomatis dikumpulkan.</p>
+        <p class="text-[10px] sm:text-xs text-gray-400 mt-1">Jika mencapai 5 pelanggaran, ujian akan otomatis dikumpulkan.</p>
     </div>
+
+    <style>#question-nav-track::-webkit-scrollbar{display:none}</style>
 
     {{-- Warning Banner (hidden by default) --}}
     <div id="cheat-warning" class="hidden mb-4 bg-red-50 border-2 border-red-300 rounded-xl p-4">
@@ -183,32 +175,48 @@
     </div>
 
     {{-- Exam Header --}}
-    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-xl font-bold text-gray-900">{{ $exam->title }}</h1>
-                <p class="text-sm text-gray-500 mt-1">{{ $questions->count() }} Soal • {{ $exam->duration_minutes }} menit</p>
+            <div class="min-w-0 flex-1">
+                <h1 class="text-base sm:text-xl font-bold text-gray-900 truncate">{{ $exam->title }}</h1>
+                <p class="text-xs sm:text-sm text-gray-500 mt-0.5">{{ $questions->count() }} Soal • {{ $exam->duration_minutes }} menit</p>
             </div>
-            <div class="text-right">
+            <div class="text-right flex-shrink-0 ml-3">
                 <p class="text-xs text-gray-400">Dijawab</p>
-                <p class="text-lg font-bold text-indigo-600">
+                <p class="text-base sm:text-lg font-bold text-indigo-600">
                     <span id="answered-count">{{ count($answers) }}</span> / {{ $questions->count() }}
                 </p>
             </div>
         </div>
 
-        {{-- Question Navigation Dots --}}
-        <div class="mt-4 flex flex-wrap gap-2" id="question-nav">
-            @foreach($questions as $index => $q)
-                <button type="button"
-                        data-nav-index="{{ $index }}"
-                        id="nav-dot-{{ $index }}"
-                        class="nav-dot-btn w-9 h-9 rounded-lg text-sm font-semibold
-                               {{ isset($answers[$q->id]) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600' }}"
-                        title="Soal {{ $index + 1 }}">
-                    {{ $index + 1 }}
-                </button>
-            @endforeach
+        {{-- Question Navigation — Horizontal Circular Slider --}}
+        <div class="mt-4" id="question-nav">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-xs text-gray-500">Geser nomor soal untuk navigasi cepat</p>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" id="nav-scroll-prev" aria-label="Geser nomor ke kiri"
+                            class="w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-50 active:scale-95 transition">
+                        &lsaquo;
+                    </button>
+                    <button type="button" id="nav-scroll-next" aria-label="Geser nomor ke kanan"
+                            class="w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-50 active:scale-95 transition">
+                        &rsaquo;
+                    </button>
+                </div>
+            </div>
+            <div id="question-nav-track" class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x" style="scrollbar-width:none;-ms-overflow-style:none;">
+                @foreach($questions as $i => $q)
+                    <button type="button"
+                            data-nav-index="{{ $i }}"
+                            id="nav-dot-{{ $i }}"
+                            class="nav-dot-btn flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full text-xs sm:text-sm font-semibold transition-all snap-start
+                                   {{ isset($answers[$q->id]) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600' }}"
+                            title="Soal {{ $i + 1 }}"
+                            aria-label="Soal {{ $i + 1 }}">
+                        {{ $i + 1 }}
+                    </button>
+                @endforeach
+            </div>
         </div>
     </div>
 
@@ -219,18 +227,18 @@
                  data-question-index="{{ $index }}"
                  data-question-id="{{ $question->id }}">
 
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
                     {{-- Question Number + Points --}}
-                    <div class="flex items-center justify-between mb-4">
-                        <span class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-semibold">
+                    <div class="flex items-center justify-between mb-3 sm:mb-4">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs sm:text-sm font-semibold">
                             Soal {{ $index + 1 }} dari {{ $questions->count() }}
                         </span>
-                        <span class="text-sm text-gray-400 font-medium">{{ $question->points }} poin</span>
+                        <span class="text-xs sm:text-sm text-gray-400 font-medium">{{ $question->points }} poin</span>
                     </div>
 
                     {{-- Question Text --}}
-                    <div class="mb-6">
-                        <p class="text-lg text-gray-900 leading-relaxed">{{ $question->question_text }}</p>
+                    <div class="mb-4 sm:mb-6">
+                        <p class="text-base sm:text-lg text-gray-900 leading-relaxed">{{ $question->question_text }}</p>
                     </div>
 
                     {{-- Answer Options --}}
@@ -282,28 +290,30 @@
                 </div>
 
                 {{-- Navigation Buttons --}}
-                <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center justify-between mb-6 sm:mb-8">
                     @if($index > 0)
-                        <button type="button" data-goto="{{ $index - 1 }}" class="nav-prev-btn flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        <button type="button" data-goto="{{ $index - 1 }}" class="nav-prev-btn flex items-center gap-1.5 px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                             </svg>
-                            Sebelumnya
+                            <span class="hidden sm:inline">Sebelumnya</span>
+                            <span class="sm:hidden">Prev</span>
                         </button>
                     @else
                         <div></div>
                     @endif
 
                     @if($index < $questions->count() - 1)
-                        <button type="button" data-goto="{{ $index + 1 }}" class="nav-next-btn flex items-center gap-2 px-5 py-2.5 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 transition-colors">
-                            Selanjutnya
+                        <button type="button" data-goto="{{ $index + 1 }}" class="nav-next-btn flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 transition-colors">
+                            <span class="hidden sm:inline">Selanjutnya</span>
+                            <span class="sm:hidden">Next</span>
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                             </svg>
                         </button>
                     @else
                         <button type="button" id="btn-submit-exam"
-                                class="flex items-center gap-2 px-6 py-2.5 bg-green-600 rounded-lg text-sm font-medium text-white hover:bg-green-700 transition-colors">
+                                class="flex items-center gap-2 px-5 py-2.5 bg-green-600 rounded-lg text-sm font-medium text-white hover:bg-green-700 transition-colors shadow-lg">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                             </svg>
@@ -390,6 +400,7 @@
     var POLL_URL = BASE_PATH + '/api/exam/' + EXAM_ID + '/poll-status';
     var SUBMIT_URL = BASE_PATH + '/student/exam/' + EXAM_ID + '/submit';
     var SAVE_URL = BASE_PATH + '/student/exam/' + EXAM_ID + '/save-answer';
+    var BULK_SAVE_URL = BASE_PATH + '/student/exam/' + EXAM_ID + '/save-answers-bulk';
     var LOG_URL_BASE = BASE_PATH + '/student/integrity/log-violation';
     var RESULT_URL = BASE_PATH + '/student/exam/' + EXAM_ID + '/result';
     var MAX_VIOLATIONS = 5;
@@ -399,9 +410,23 @@
     var answeredSet = new Set();
     var examEnded = false;
 
+    // Request load tuning for shared hosting (config-driven).
+    var SAVE_DEBOUNCE_MC_MS = Number(@json(config('exam_runtime.student.save_debounce_mc_ms', 700)));
+    var SAVE_DEBOUNCE_ESSAY_MS = Number(@json(config('exam_runtime.student.save_debounce_essay_ms', 3000)));
+    var SYNC_DEBOUNCE_MS = Number(@json(config('exam_runtime.student.sync_debounce_ms', 1800)));
+    var SYNC_MIN_INTERVAL_MS = Number(@json(config('exam_runtime.student.sync_min_interval_ms', 2500)));
+    var SYNC_RETRY_INTERVAL_MS = Number(@json(config('exam_runtime.student.sync_retry_interval_ms', 6000)));
+    var SYNC_PERIODIC_INTERVAL_MS = Number(@json(config('exam_runtime.student.sync_periodic_interval_ms', 20000)));
+    var POLL_BASE_INTERVAL_MS = Number(@json(config('exam_runtime.student.poll_base_interval_ms', 15000)));
+    var POLL_JITTER_MS = Number(@json(config('exam_runtime.student.poll_jitter_ms', 5000)));
+    var REINSTATE_POLL_INTERVAL_MS = Number(@json(config('exam_runtime.student.reinstate_poll_interval_ms', 10000)));
+    var BULK_SYNC_CHUNK_SIZE = Number(@json(config('exam_runtime.student.bulk_sync_chunk_size', 8)));
+
     // ========== OFFLINE QUEUE & RETRY SYSTEM ==========
     var pendingQueue = {}; // { questionId: { question_id, selected_answer|answer_text, is_essay?, timestamp } }
     var isSyncing = false;
+    var syncTimer = null;
+    var lastSyncAt = 0;
 
     // Create save status indicator element
     var saveStatusEl = document.createElement('div');
@@ -513,7 +538,19 @@
         try {
             localStorage.setItem('exam_' + EXAM_ID + '_pending', JSON.stringify(pendingQueue));
         } catch (e) {}
-        syncPendingQueue();
+        scheduleSync(SYNC_DEBOUNCE_MS);
+    }
+
+    function scheduleSync(delayMs) {
+        if (syncTimer) {
+            clearTimeout(syncTimer);
+            syncTimer = null;
+        }
+
+        syncTimer = setTimeout(function() {
+            syncTimer = null;
+            syncPendingQueue();
+        }, Math.max(0, Number(delayMs) || 0));
     }
 
     // Remove from pending queue only if value matches what we sent
@@ -542,6 +579,130 @@
         }
     } catch (e) {}
 
+    function buildAnswerPayload(item, withToken) {
+        var payload = { question_id: item.question_id };
+        if (item.is_essay) {
+            payload.answer_text = item.answer_text;
+        } else {
+            payload.selected_answer = item.selected_answer;
+        }
+        if (withToken) {
+            payload.client_token = String(item.timestamp || '');
+        }
+        return payload;
+    }
+
+    function processSyncSequential(keys, index, done) {
+        if (index >= keys.length) {
+            done();
+            return;
+        }
+
+        var qId = keys[index];
+        var item = pendingQueue[qId];
+        if (!item) {
+            processSyncSequential(keys, index + 1, done);
+            return;
+        }
+
+        var sentTimestamp = item.timestamp;
+        var payload = buildAnswerPayload(item, false);
+
+        fetch(SAVE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+        }).then(function(res) {
+            if (res.ok) {
+                removeFromPending(qId, sentTimestamp);
+                showSaveStatus('saved');
+            }
+            processSyncSequential(keys, index + 1, done);
+        }).catch(function() {
+            processSyncSequential(keys, index + 1, done);
+        });
+    }
+
+    function processSyncBulk(keys, index, done) {
+        if (index >= keys.length) {
+            done();
+            return;
+        }
+
+        var batchKeys = [];
+        for (var i = index; i < keys.length && batchKeys.length < BULK_SYNC_CHUNK_SIZE; i++) {
+            if (pendingQueue[keys[i]]) {
+                batchKeys.push(keys[i]);
+            }
+        }
+
+        var nextIndex = index + Math.max(1, batchKeys.length);
+
+        if (batchKeys.length === 0) {
+            processSyncBulk(keys, nextIndex, done);
+            return;
+        }
+
+        var answersPayload = batchKeys.map(function(key) {
+            return buildAnswerPayload(pendingQueue[key], true);
+        });
+
+        fetch(BULK_SAVE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ answers: answersPayload })
+        }).then(function(res) {
+            if (!res.ok) {
+                throw new Error('HTTP ' + res.status);
+            }
+            return res.json().catch(function() { return {}; });
+        }).then(function(data) {
+            var resultByToken = {};
+            if (data && Array.isArray(data.results)) {
+                data.results.forEach(function(result) {
+                    if (!result || result.client_token === undefined || result.client_token === null) {
+                        return;
+                    }
+                    resultByToken[String(result.client_token)] = result;
+                });
+            }
+
+            var removedAny = false;
+            batchKeys.forEach(function(key) {
+                var queued = pendingQueue[key];
+                if (!queued) return;
+
+                var token = String(queued.timestamp || '');
+                var result = resultByToken[token];
+                var ok = result ? !!result.success : true;
+
+                if (ok) {
+                    removeFromPending(key, queued.timestamp);
+                    removedAny = true;
+                }
+            });
+
+            if (removedAny) {
+                showSaveStatus('saved');
+            }
+
+            processSyncBulk(keys, nextIndex, done);
+        }).catch(function() {
+            // Fallback to single-save mode if bulk endpoint fails.
+            processSyncSequential(keys, index, done);
+        });
+    }
+
     // Sync all pending answers to server - SEQUENTIAL to prevent race conditions
     function syncPendingQueue() {
         var keys = Object.keys(pendingQueue);
@@ -553,96 +714,51 @@
             return;
         }
 
-        isSyncing = true;
-        var saveUrl = SAVE_URL;
-
-        function processNext(index) {
-            if (index >= keys.length) {
-                isSyncing = false;
-                // Check if new items were added while syncing
-                if (Object.keys(pendingQueue).length > 0) {
-                    setTimeout(syncPendingQueue, 500);
-                } else {
-                    showSaveStatus('synced');
-                    showConnStatus(true);
-                }
-                return;
-            }
-
-            var qId = keys[index];
-            var item = pendingQueue[qId];
-            
-            // Item might have been removed/updated already
-            if (!item) {
-                processNext(index + 1);
-                return;
-            }
-
-            // Snapshot the timestamp so we know which version we're sending
-            var sentTimestamp = item.timestamp;
-
-            // Build payload based on question type
-            var payload = { question_id: item.question_id };
-            if (item.is_essay) {
-                payload.answer_text = item.answer_text;
-            } else {
-                payload.selected_answer = item.selected_answer;
-            }
-
-            fetch(saveUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN,
-                    'Accept': 'application/json',
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify(payload)
-            }).then(function(res) {
-                if (res.ok) {
-                    removeFromPending(qId, sentTimestamp);
-                    showSaveStatus('saved');
-                    processNext(index + 1);
-                } else {
-                    console.warn('[SaveQueue] Failed to save Q' + qId + ': HTTP ' + res.status);
-                    // On HTTP error, stop and retry soon
-                    isSyncing = false;
-                    showSaveStatus('error');
-                    setTimeout(syncPendingQueue, 3000);
-                }
-            }).catch(function(err) {
-                console.warn('[SaveQueue] Network error for Q' + qId + ':', err);
-                // On network error, stop and retry later
-                isSyncing = false;
-                showSaveStatus('error');
-                setTimeout(syncPendingQueue, 3000);
-            });
+        var now = Date.now();
+        var sinceLastSync = now - lastSyncAt;
+        if (sinceLastSync < SYNC_MIN_INTERVAL_MS) {
+            scheduleSync(SYNC_MIN_INTERVAL_MS - sinceLastSync + 100);
+            return;
         }
 
-        processNext(0);
+        isSyncing = true;
+        lastSyncAt = now;
+
+        var onDone = function() {
+            isSyncing = false;
+            if (Object.keys(pendingQueue).length > 0) {
+                showSaveStatus('error');
+                scheduleSync(SYNC_RETRY_INTERVAL_MS);
+            } else {
+                showSaveStatus('synced');
+                showConnStatus(true);
+            }
+        };
+
+        processSyncBulk(keys, 0, onDone);
     }
 
     // Detect online/offline and auto-sync
     window.addEventListener('online', function() {
         console.log('[SaveQueue] Connection restored, syncing...');
         showConnStatus(true);
-        setTimeout(syncPendingQueue, 500);
+        scheduleSync(800);
     });
     window.addEventListener('offline', function() {
         console.log('[SaveQueue] Connection lost');
         showConnStatus(false);
     });
 
-    // Periodic retry every 10 seconds for any pending items
+    // Periodic retry for any pending items
     setInterval(function() {
         if (Object.keys(pendingQueue).length > 0 && navigator.onLine && !isSyncing) {
-            syncPendingQueue();
+            scheduleSync(0);
         }
-    }, 10000);
+    }, SYNC_PERIODIC_INTERVAL_MS);
 
     // Sync any items from previous session on page load
     if (Object.keys(pendingQueue).length > 0 && navigator.onLine) {
-        setTimeout(syncPendingQueue, 1000);
+        scheduleSync(1200);
     }
 
     // Set form action from computed base path
@@ -724,6 +840,61 @@
         // Silent fail for localStorage
     }
 
+    // ---- Horizontal nav slider controls ----
+    var navTrack = document.getElementById('question-nav-track');
+    var navScrollPrev = document.getElementById('nav-scroll-prev');
+    var navScrollNext = document.getElementById('nav-scroll-next');
+
+    function getNavScrollAmount() {
+        if (!navTrack) {
+            return 200;
+        }
+        return Math.max(200, Math.floor(navTrack.clientWidth * 0.7));
+    }
+
+    function centerActiveNavDot(index, smooth) {
+        if (!navTrack) {
+            return;
+        }
+        var activeDot = document.getElementById('nav-dot-' + index);
+        if (!activeDot) {
+            return;
+        }
+        var targetLeft = activeDot.offsetLeft - (navTrack.clientWidth / 2) + (activeDot.offsetWidth / 2);
+        navTrack.scrollTo({
+            left: Math.max(0, targetLeft),
+            behavior: smooth ? 'smooth' : 'auto'
+        });
+    }
+
+    if (navScrollPrev) {
+        navScrollPrev.addEventListener('click', function() {
+            if (!navTrack) {
+                return;
+            }
+            navTrack.scrollBy({ left: -getNavScrollAmount(), behavior: 'smooth' });
+        });
+    }
+
+    if (navScrollNext) {
+        navScrollNext.addEventListener('click', function() {
+            if (!navTrack) {
+                return;
+            }
+            navTrack.scrollBy({ left: getNavScrollAmount(), behavior: 'smooth' });
+        });
+    }
+
+    // Make mouse wheel convenient on laptop: vertical wheel scrolls nav horizontally.
+    if (navTrack) {
+        navTrack.addEventListener('wheel', function(e) {
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                navTrack.scrollLeft += e.deltaY;
+            }
+        }, { passive: false });
+    }
+
     // ---- EVENT DELEGATION: Nav dots ----
     document.querySelectorAll('.nav-dot-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -785,7 +956,7 @@
                 }
             }
             
-            // Debounce save (longer for essay — 1.5s)
+            // Debounce save (longer for essay)
             if (window._essayTimers && window._essayTimers[qId]) {
                 clearTimeout(window._essayTimers[qId]);
             }
@@ -800,7 +971,7 @@
             window._essayTimers[qId] = setTimeout(function() {
                 delete window._essayTimers[qId];
                 addEssayToPendingQueue(qId, currentText);
-            }, 1500);
+            }, SAVE_DEBOUNCE_ESSAY_MS);
         });
         
         // Also init answered state for pre-filled essays
@@ -815,7 +986,7 @@
         try {
             localStorage.setItem('exam_' + EXAM_ID + '_pending', JSON.stringify(pendingQueue));
         } catch (e) {}
-        syncPendingQueue();
+        scheduleSync(SYNC_DEBOUNCE_MS);
     }
 
     // ---- EVENT DELEGATION: Prev/Next buttons ----
@@ -871,7 +1042,7 @@
         });
         
         // Disable ALL navigation buttons
-        document.querySelectorAll('.nav-prev-btn, .nav-next-btn, .nav-dot-btn').forEach(function(btn) {
+        document.querySelectorAll('.nav-prev-btn, .nav-next-btn, .nav-dot-btn, #nav-scroll-prev, #nav-scroll-next').forEach(function(btn) {
             btn.disabled = true;
             btn.style.pointerEvents = 'none';
             btn.style.opacity = '0.5';
@@ -900,7 +1071,8 @@
         }
     }
 
-    function goToQuestion(index) {
+    function goToQuestion(index, options) {
+        var opts = options || {};
         document.querySelectorAll('.question-slide').forEach(function(slide) {
             slide.classList.add('hidden');
         });
@@ -909,12 +1081,18 @@
             target.classList.remove('hidden');
             currentQuestion = index;
         }
-        document.querySelectorAll('#question-nav button').forEach(function(btn, i) {
+        // Highlight active dot
+        document.querySelectorAll('.nav-dot-btn').forEach(function(btn) {
             btn.classList.remove('ring-2', 'ring-indigo-400', 'ring-offset-2');
-            if (i === index) {
+            if (Number(btn.dataset.navIndex) === index) {
                 btn.classList.add('ring-2', 'ring-indigo-400', 'ring-offset-2');
             }
         });
+        centerActiveNavDot(index, !opts.instantNav);
+        // Scroll to top of question on mobile
+        if (!opts.preserveViewport) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     function updateAnsweredCount() {
@@ -974,7 +1152,7 @@
             delete window._saveTimers[questionId];
             // Add to queue and sync — queue handles retries automatically
             addToPendingQueue(questionId, option);
-        }, 300); // 300ms debounce
+        }, SAVE_DEBOUNCE_MC_MS);
     }
 
     function confirmSubmit() {
@@ -1055,48 +1233,12 @@
         }
 
         showSaveStatus('saving');
-        var saveUrl = SAVE_URL;
 
-        function flushNext(index) {
-            if (index >= keys.length) {
-                // All done, submit the form
-                doSubmitWithRetry();
-                return;
-            }
-
-            var qId = keys[index];
-            var item = pendingQueue[qId];
-            if (!item) {
-                flushNext(index + 1);
-                return;
-            }
-
-            var sentTimestamp = item.timestamp;
-            var flushPayload = { question_id: item.question_id };
-            if (item.is_essay) {
-                flushPayload.answer_text = item.answer_text;
-            } else {
-                flushPayload.selected_answer = item.selected_answer;
-            }
-            fetch(saveUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN,
-                    'Accept': 'application/json',
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify(flushPayload)
-            }).then(function(res) {
-                if (res.ok) removeFromPending(qId, sentTimestamp);
-                flushNext(index + 1);
-            }).catch(function() {
-                // Network error — still try to submit with whatever we have
-                flushNext(index + 1);
-            });
-        }
-
-        flushNext(0);
+        processSyncBulk(keys, 0, function() {
+            // Continue submit even if some pending items failed to sync,
+            // preserving previous behavior and avoiding blocked submission.
+            doSubmitWithRetry();
+        });
     }
 
     // Submit exam with fetch + retry fallback
@@ -1189,7 +1331,7 @@
     }
 
     // Initialize first question nav highlight
-    goToQuestion(0);
+    goToQuestion(0, { instantNav: true, preserveViewport: true });
 
     // ============================================
     // COUNTDOWN TIMER
@@ -1289,7 +1431,7 @@
 
     function scheduleExamPoll() {
         // Jitter avoids request bursts when many devices open exam simultaneously.
-        var delay = 9000 + Math.floor(Math.random() * 3000);
+        var delay = POLL_BASE_INTERVAL_MS + Math.floor(Math.random() * POLL_JITTER_MS);
         pollTimer = setTimeout(function() {
             if (!examEnded && !document.hidden) {
                 pollExamStatus();
@@ -1300,7 +1442,7 @@
         }, delay);
     }
 
-    // Keep average around 10s while spreading concurrent requests.
+    // Keep average around 15-20s while spreading concurrent requests.
     scheduleExamPoll();
     // Also poll immediately when tab becomes visible again
     document.addEventListener('visibilitychange', function() {
@@ -1322,8 +1464,17 @@
     var graceToastTimeout = null;
     var graceTimer = null;
     var GRACE_PERIOD_MS = 1500;
-    var VIOLATION_COOLDOWN_MS = 3000;
+    var VIOLATION_COOLDOWN_MS = 12000;
+    var VIOLATION_GLOBAL_COOLDOWN_MS = 8000;
+    var CASCADE_WINDOW_MS = 3000;
+    var CASCADE_GROUPS = {
+        'tab_switch': 'leave', 'window_blur': 'leave', 'fullscreen_exit': 'leave',
+        'resize_suspicion': 'leave', 'split_screen': 'leave',
+        'screenshot': 'screenshot'
+    };
     var lastViolationTime = {};
+    var lastAnyViolationTime = 0;
+    var lastCascadeGroupTime = {};
     var screenshotWarningTimeout = null;
 
     // ========== FULLSCREEN STATE ==========
@@ -1355,10 +1506,20 @@
         if (examEnded) return;
 
         var now = Date.now();
+        // Cascade group suppression: tab_switch+fullscreen_exit+resize = 1 event
+        var group = CASCADE_GROUPS[type] || type;
+        if (lastCascadeGroupTime[group] && (now - lastCascadeGroupTime[group]) < CASCADE_WINDOW_MS) {
+            return;
+        }
+        if (lastAnyViolationTime && (now - lastAnyViolationTime) < VIOLATION_GLOBAL_COOLDOWN_MS) {
+            return;
+        }
         if (lastViolationTime[type] && (now - lastViolationTime[type]) < VIOLATION_COOLDOWN_MS) {
             return;
         }
         lastViolationTime[type] = now;
+        lastAnyViolationTime = now;
+        lastCascadeGroupTime[group] = now;
 
         try {
             fetch(LOG_URL, {
@@ -1532,7 +1693,7 @@
                     document.getElementById('terminated-reinstated').classList.remove('hidden');
                 }
             }).catch(function(e) {});
-        }, 5000);
+        }, REINSTATE_POLL_INTERVAL_MS);
     }
     // Expose to global scope for polling code
     window.showTerminatedScreen = showTerminatedScreen;

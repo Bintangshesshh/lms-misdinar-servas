@@ -430,8 +430,16 @@
         } catch (e) { console.error(e); }
     }
 
-    // Adaptive poll delay (ms): increase interval as student count grows.
-    let pollDelayMs = 2500;
+    // Adaptive poll delay (ms): config-driven with enforced minimum.
+    const MIN_POLL_MS = Number(@json(config('exam_runtime.min_poll_ms', 5000)));
+    const ADMIN_POLL_LOBBY_MS = Number(@json(config('exam_runtime.admin.poll_lobby_ms', 5000)));
+    const ADMIN_POLL_COUNTDOWN_MS = Number(@json(config('exam_runtime.admin.poll_countdown_ms', 5000)));
+    const ADMIN_POLL_RUNNING_SMALL_MS = Number(@json(config('exam_runtime.admin.poll_running_small_ms', 5000)));
+    const ADMIN_POLL_RUNNING_MEDIUM_MS = Number(@json(config('exam_runtime.admin.poll_running_medium_ms', 7000)));
+    const ADMIN_POLL_RUNNING_LARGE_MS = Number(@json(config('exam_runtime.admin.poll_running_large_ms', 9000)));
+    const ADMIN_POLL_JITTER_MS = Number(@json(config('exam_runtime.admin.poll_jitter_ms', 1000)));
+
+    let pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_LOBBY_MS);
     let pollTimer = null;
     let pollInFlight = false;
 
@@ -485,12 +493,18 @@
             document.getElementById('big-counter').textContent = data.student_count;
 
             // Dynamic backoff for larger classes to reduce backend pressure.
-            if (data.student_count >= 80) {
-                pollDelayMs = 4500;
-            } else if (data.student_count >= 40) {
-                pollDelayMs = 3500;
+            if (data.exam_status === 'countdown') {
+                pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_COUNTDOWN_MS);
+            } else if (data.exam_status === 'lobby') {
+                pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_LOBBY_MS);
             } else {
-                pollDelayMs = 2500;
+                if (data.student_count >= 80) {
+                    pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_RUNNING_LARGE_MS);
+                } else if (data.student_count >= 40) {
+                    pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_RUNNING_MEDIUM_MS);
+                } else {
+                    pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_RUNNING_SMALL_MS);
+                }
             }
 
             let safe = 0, warning = 0, danger = 0, terminated = 0;
@@ -552,8 +566,8 @@
             clearTimeout(pollTimer);
         }
 
-        // Small jitter avoids synchronized bursts after network hiccups.
-        const jitter = Math.floor(Math.random() * 400);
+        // Jitter avoids synchronized bursts after network hiccups.
+        const jitter = Math.floor(Math.random() * Math.max(0, ADMIN_POLL_JITTER_MS));
         pollTimer = setTimeout(function() {
             if (!document.hidden) {
                 pollLobby().finally(scheduleNextPoll);

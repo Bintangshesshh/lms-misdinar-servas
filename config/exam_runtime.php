@@ -12,6 +12,7 @@ $adminCountdownDefault = $isCrowded ? 6000 : 5000;
 $adminRunningSmallDefault = $isCrowded ? 7000 : 5000;
 $adminRunningMediumDefault = $isCrowded ? 8000 : 7000;
 $adminRunningLargeDefault = $isCrowded ? 10000 : 9000;
+$adminFinishedDefault = $isCrowded ? 30000 : 20000;
 $adminJitterDefault = $isCrowded ? 1500 : 1000;
 
 return [
@@ -37,6 +38,7 @@ return [
         'poll_running_small_ms' => max($minPollMs, (int) env('EXAM_ADMIN_POLL_RUNNING_SMALL_MS', $adminRunningSmallDefault)),
         'poll_running_medium_ms' => max($minPollMs, (int) env('EXAM_ADMIN_POLL_RUNNING_MEDIUM_MS', $adminRunningMediumDefault)),
         'poll_running_large_ms' => max($minPollMs, (int) env('EXAM_ADMIN_POLL_RUNNING_LARGE_MS', $adminRunningLargeDefault)),
+        'poll_finished_ms' => max($minPollMs, (int) env('EXAM_ADMIN_POLL_FINISHED_MS', $adminFinishedDefault)),
         'poll_jitter_ms' => (int) env('EXAM_ADMIN_POLL_JITTER_MS', $adminJitterDefault),
     ],
 ];

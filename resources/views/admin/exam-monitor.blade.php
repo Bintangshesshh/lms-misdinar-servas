@@ -437,6 +437,7 @@
     const ADMIN_POLL_RUNNING_SMALL_MS = Number(@json(config('exam_runtime.admin.poll_running_small_ms', 5000)));
     const ADMIN_POLL_RUNNING_MEDIUM_MS = Number(@json(config('exam_runtime.admin.poll_running_medium_ms', 7000)));
     const ADMIN_POLL_RUNNING_LARGE_MS = Number(@json(config('exam_runtime.admin.poll_running_large_ms', 9000)));
+    const ADMIN_POLL_FINISHED_MS = Number(@json(config('exam_runtime.admin.poll_finished_ms', 30000)));
     const ADMIN_POLL_JITTER_MS = Number(@json(config('exam_runtime.admin.poll_jitter_ms', 1000)));
 
     let pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_LOBBY_MS);
@@ -493,7 +494,9 @@
             document.getElementById('big-counter').textContent = data.student_count;
 
             // Dynamic backoff for larger classes to reduce backend pressure.
-            if (data.exam_status === 'countdown') {
+            if (data.exam_status === 'finished') {
+                pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_FINISHED_MS);
+            } else if (data.exam_status === 'countdown') {
                 pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_COUNTDOWN_MS);
             } else if (data.exam_status === 'lobby') {
                 pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_LOBBY_MS);

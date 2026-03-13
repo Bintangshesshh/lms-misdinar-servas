@@ -71,6 +71,34 @@ php artisan optimize:clear
 
 Catatan: opsi tanpa SSH lebih rawan salah upload, jadi cek ulang path `vendor/autoload.php` dan `bootstrap/app.php`.
 
+### Opsi B1: Jalankan Cache Production Tanpa SSH (One-Time Endpoint Aman)
+
+Jika paket hosting tidak menyediakan SSH, gunakan endpoint internal sekali pakai ini.
+
+1. Di `.env` server, set sementara:
+
+```env
+DEPLOY_CACHE_WARM_ENABLED=true
+DEPLOY_CACHE_WARM_TOKEN=token_acak_panjang_min_32_char
+DEPLOY_CACHE_WARM_ALLOW_GET=true
+DEPLOY_CACHE_WARM_INCLUDE_ROUTE=false
+```
+
+2. Buka URL berikut di browser (ganti domain + token):
+
+```text
+https://namadomainkamu.com/_internal/deploy/cache-warm?token=token_acak_panjang_min_32_char
+```
+
+3. Pastikan respons JSON menunjukkan `ok: true`.
+4. Setelah sukses, ubah lagi `.env`:
+
+```env
+DEPLOY_CACHE_WARM_ENABLED=false
+```
+
+Endpoint ini otomatis terkunci setelah sukses (lock file), jadi tidak bisa dijalankan ulang sembarang.
+
 ## 4. Template .env Production (Hostinger)
 
 Gunakan referensi dari file `.env.hostinger.example` di repo ini.

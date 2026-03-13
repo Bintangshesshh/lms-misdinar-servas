@@ -4,11 +4,16 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentDashboardController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\ExamLobbyController;
+use App\Http\Controllers\DeploymentController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+
+Route::match(['GET', 'POST'], '/_internal/deploy/cache-warm', [DeploymentController::class, 'cacheWarm'])
+    ->middleware('throttle:5,1')
+    ->name('internal.deploy.cacheWarm');
 
 Route::get('/', function () {
     return redirect()->route('login');

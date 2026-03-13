@@ -75,13 +75,20 @@ Catatan: opsi tanpa SSH lebih rawan salah upload, jadi cek ulang path `vendor/au
 
 Gunakan referensi dari file `.env.hostinger.example` di repo ini.
 
+Alur sinkron paling aman:
+
+1. Update nilai non-rahasia langsung di `.env.hostinger.example` lalu commit ke repo.
+2. Untuk nilai rahasia (`APP_KEY`, `DB_PASSWORD`), isi langsung di `.env` server Hostinger (jangan commit ke Git).
+3. Setiap deploy, bandingkan `.env.hostinger.example` terbaru dengan `.env` di server lalu update yang berubah.
+
 Poin penting:
 
 - `APP_ENV=production`
 - `APP_DEBUG=false`
-- `APP_URL=https://namadomainkamu.com`
+- `APP_URL=https://misdinarservas.cloud`
 - `SESSION_DRIVER=database`
-- `CACHE_STORE=database` (atau `redis` jika tersedia)
+- `CACHE_STORE=database`
+- `QUEUE_CONNECTION=sync` (sesuai paket hosting saat ini)
 - set `TRUSTED_PROXIES` jika ada reverse proxy
 
 ## 5. Permission Wajib

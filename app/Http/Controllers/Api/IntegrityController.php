@@ -98,7 +98,10 @@ class IntegrityController extends Controller
                 // Finalize session immediately so status stays consistent
                 // even if client disconnects during auto-submit flow.
                 $questions = $session->exam()->with('questions:id,exam_id,question_type,correct_answer,points')->first()?->questions?->keyBy('id') ?? collect();
-                $totalPoints = $questions->sum('points') ?: $questions->count();
+                $totalPoints = $questions
+                    ->filter(fn($q) => ($q->question_type ?? 'multiple_choice') !== 'essay')
+                    ->sum('points')
+                    ?: $questions->filter(fn($q) => ($q->question_type ?? 'multiple_choice') !== 'essay')->count();
 
                 $earnedPoints = 0;
                 $answers = StudentAnswer::where('exam_session_id', $session->id)

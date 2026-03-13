@@ -204,13 +204,13 @@
                     </button>
                 </div>
             </div>
-            <div id="question-nav-track" class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x" style="scrollbar-width:none;-ms-overflow-style:none;">
+            <div id="question-nav-track" class="flex gap-2 overflow-x-auto py-2 px-2 -mx-2 snap-x" style="scrollbar-width:none;-ms-overflow-style:none;">
                 @foreach($questions as $i => $q)
                     <button type="button"
                             data-nav-index="{{ $i }}"
                             id="nav-dot-{{ $i }}"
-                            class="nav-dot-btn flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full text-xs sm:text-sm font-semibold transition-all snap-start
-                                   {{ isset($answers[$q->id]) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600' }}"
+                            class="nav-dot-btn flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full text-xs sm:text-sm font-semibold transition-all snap-start ring-offset-2 focus:outline-none
+                                   {{ isset($answers[$q->id]) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
                             title="Soal {{ $i + 1 }}"
                             aria-label="Soal {{ $i + 1 }}">
                         {{ $i + 1 }}
@@ -1068,6 +1068,49 @@
         if (questionsContainer) {
             questionsContainer.style.pointerEvents = 'none';
             questionsContainer.style.opacity = '0.3';
+        }
+    }
+
+    // ---- Navigation Scroll Logic ----
+    var navTrack = document.getElementById('question-nav-track');
+    var navPrevBtn = document.getElementById('nav-scroll-prev');
+    var navNextBtn = document.getElementById('nav-scroll-next');
+
+    if (navPrevBtn && navNextBtn && navTrack) {
+        navPrevBtn.addEventListener('click', function() {
+            navTrack.scrollBy({ left: -200, behavior: 'smooth' });
+        });
+        navNextBtn.addEventListener('click', function() {
+            navTrack.scrollBy({ left: 200, behavior: 'smooth' });
+        });
+    }
+
+    function centerActiveNavDot(index, smooth) {
+        var btn = document.getElementById('nav-dot-' + index);
+        if (btn && navTrack) {
+            // center the button within the scrollable track
+            var trackWidth = navTrack.clientWidth;
+            var btnLeft = btn.offsetLeft;
+            var btnWidth = btn.offsetWidth;
+            
+            // "offsetLeft" is relative to the offsetParent.
+            // If navTrack is the offsetParent (position: relative/absolute/fixed), great.
+            // If not, we need distance relative to track.
+            // Assuming simplified layout where track is the parent or simple flow.
+            // Using getBoundingClientRect is safer.
+            
+            var trackRect = navTrack.getBoundingClientRect();
+            var btnRect = btn.getBoundingClientRect();
+            
+            // Expected scrollLeft = currentScrollLeft + (btnLeft_relative_to_viewport - trackLeft_relative_to_viewport) - (trackWidth/2 - btnWidth/2)
+            var offset = btnRect.left - trackRect.left;
+            var centerOffset = (trackWidth / 2) - (btnWidth / 2);
+            var targetScroll = navTrack.scrollLeft + (offset - centerOffset);
+            
+            navTrack.scrollTo({
+                left: targetScroll,
+                behavior: smooth ? 'smooth' : 'auto'
+            });
         }
     }
 

@@ -116,9 +116,10 @@ class AdminDashboardController extends Controller
             return $exam->questions()->count();
         });
 
-        // Cache total points for score calculation
+        // Cache total points for score calculation (multiple choice only).
         $totalPoints = Cache::remember("exam.{$exam->id}.total_points", 600, function () use ($exam) {
-            return $exam->questions()->sum('points') ?: $exam->questions()->count();
+            $scoredQuestions = $exam->questions()->where('question_type', 'multiple_choice');
+            return $scoredQuestions->sum('points') ?: $scoredQuestions->count();
         });
 
         // Aggregate answer stats in one grouped query to avoid expensive per-session subqueries.
@@ -131,8 +132,8 @@ class AdminDashboardController extends Controller
                 ->groupBy('student_answers.exam_session_id')
                 ->selectRaw('student_answers.exam_session_id as session_id')
                 ->selectRaw('SUM(CASE WHEN student_answers.selected_answer IS NOT NULL OR student_answers.answer_text IS NOT NULL THEN 1 ELSE 0 END) as answered_count')
-                ->selectRaw('SUM(CASE WHEN student_answers.is_correct = 1 THEN 1 ELSE 0 END) as correct_count')
-                ->selectRaw('SUM(CASE WHEN student_answers.is_correct = 1 THEN COALESCE(questions.points, 1) ELSE 0 END) as earned_points')
+                ->selectRaw("SUM(CASE WHEN student_answers.is_correct = 1 AND COALESCE(questions.question_type, 'multiple_choice') = 'multiple_choice' THEN 1 ELSE 0 END) as correct_pg_count")
+                ->selectRaw("SUM(CASE WHEN student_answers.is_correct = 1 AND COALESCE(questions.question_type, 'multiple_choice') = 'multiple_choice' THEN COALESCE(questions.points, 1) ELSE 0 END) as earned_points")
                 ->get()
                 ->keyBy('session_id');
         });
@@ -149,7 +150,7 @@ class AdminDashboardController extends Controller
             ->map(function($session) use ($exam, $totalPoints, $answerStatsBySession) {
                 $stats = $answerStatsBySession->get((string) $session->id) ?: $answerStatsBySession->get((int) $session->id);
                 $answeredCount = (int) ($stats->answered_count ?? 0);
-                $correctCount = (int) ($stats->correct_count ?? 0);
+                $correctPgCount = (int) ($stats->correct_pg_count ?? 0);
                 
                 // Always derive score from current answers to avoid stale/null score mismatch.
                 $earnedPoints = (float) ($stats->earned_points ?? 0);
@@ -176,7 +177,8 @@ class AdminDashboardController extends Controller
                     'status' => $session->status,
                     'current_score' => $currentScore,
                     'answered' => $answeredCount,
-                    'correct' => $correctCount,
+                    'correct' => $correctPgCount,
+                    'correct_pg' => $correctPgCount,
                     'time_remaining' => $timeRemaining,
                 ];
             });
@@ -274,7 +276,10 @@ class AdminDashboardController extends Controller
         if ($ongoingSessionIds->isNotEmpty()) {
             // Load questions once (keyed for fast lookups)
             $questions = $exam->questions()->get()->keyBy('id');
-            $totalPoints = $questions->sum('points') ?: $questions->count();
+            $scoredQuestions = $questions->filter(function ($q) {
+                return ($q->question_type ?? 'multiple_choice') !== 'essay';
+            });
+            $totalPoints = $scoredQuestions->sum('points') ?: $scoredQuestions->count();
 
             foreach ($ongoingSessionIds->chunk(50) as $chunkIds) {
                 $answersBySession = StudentAnswer::whereIn('exam_session_id', $chunkIds)

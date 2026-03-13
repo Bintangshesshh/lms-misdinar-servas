@@ -178,7 +178,10 @@ class ExamController extends Controller
                 fn() => Question::where('exam_id', $session->exam_id)->get()->keyBy('id')
             );
 
-            $totalPoints = $questions->sum('points') ?: $questions->count();
+            $totalPoints = $questions
+                ->filter(fn($q) => ($q->question_type ?? 'multiple_choice') !== 'essay')
+                ->sum('points')
+                ?: $questions->filter(fn($q) => ($q->question_type ?? 'multiple_choice') !== 'essay')->count();
             $earnedPoints = 0;
 
             $answers = StudentAnswer::where('exam_session_id', $session->id)

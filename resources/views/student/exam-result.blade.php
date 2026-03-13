@@ -23,24 +23,14 @@
         <p class="text-gray-500 mb-6">{{ $exam->title }}</p>
 
         @if($exam->show_score_to_student)
-            <div class="grid grid-cols-3 gap-4 max-w-md mx-auto">
+            <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
                 <div class="bg-gray-50 rounded-xl p-4">
                     <p class="text-3xl font-bold text-indigo-600">{{ $session->score_academic }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Nilai Akademik</p>
+                    <p class="text-xs text-gray-500 mt-1">Nilai PG</p>
                 </div>
                 <div class="bg-gray-50 rounded-xl p-4">
                     <p class="text-3xl font-bold {{ $session->score_integrity >= 80 ? 'text-green-600' : ($session->score_integrity >= 50 ? 'text-yellow-600' : 'text-red-600') }}">{{ $session->score_integrity }}%</p>
                     <p class="text-xs text-gray-500 mt-1">Skor Integritas</p>
-                </div>
-                <div class="bg-gray-50 rounded-xl p-4">
-                    <p class="text-3xl font-bold text-gray-800">
-                        @if(($totalScoredQuestions ?? 0) > 0)
-                            {{ $correctAnswers }}/{{ $totalScoredQuestions }}
-                        @else
-                            -
-                        @endif
-                    </p>
-                    <p class="text-xs text-gray-500 mt-1">Jawaban Benar (PG)</p>
                 </div>
             </div>
         @else

@@ -89,7 +89,10 @@ class ExamResultExport
         // Canonical scoring snapshot used by all sheets so Excel stays consistent.
         $questionsById = $questions->keyBy('id');
         $totalQuestions = (int) $questions->count();
-        $totalPoints = (int) ($questions->sum('points') ?: $questions->count());
+        $scoredQuestions = $questions->filter(function ($q) {
+            return ($q->question_type ?? 'multiple_choice') !== 'essay';
+        });
+        $totalPoints = (int) ($scoredQuestions->sum('points') ?: $scoredQuestions->count());
 
         $questionStats = [];
         foreach ($questions as $q) {
@@ -181,15 +184,15 @@ class ExamResultExport
         $writer->addRow(Row::fromValues(['Tanggal: ' . now()->format('d/m/Y H:i')]));
         $writer->addRow(Row::fromValues(['Durasi: ' . $exam->duration_minutes . ' menit']));
         $writer->addRow(Row::fromValues(['Jumlah Soal: ' . $questions->count()]));
-        $writer->addRow(Row::fromValues(['Total Poin Maksimal: ' . $questions->sum('points')]));
+        $writer->addRow(Row::fromValues(['Total Poin Maksimal (PG): ' . $totalPoints]));
         $writer->addRow(Row::fromValues([]));
 
         $headers = [
             'No', 'Nama Lengkap', 'Username', 'Email',
             'Kelas', 'Umur', 'Lingkungan', 'Asal Sekolah',
             'Status',
-            'Skor Akademik', 'Skor Integritas',
-            'Jawaban Benar', 'Jawaban Salah', 'Soal Essay', 'Tidak Dijawab',
+            'Nilai PG', 'Skor Integritas',
+            'Jawaban Benar (PG)', 'Jawaban Salah (PG)', 'Soal Essay', 'Tidak Dijawab',
             'Poin Diperoleh', 'Jumlah Pelanggaran', 'Total Log Pelanggaran',
             'Tab Switch', 'Screenshot', 'Split Screen', 'Window Blur',
             'Fullscreen Exit', 'Resize/Split',

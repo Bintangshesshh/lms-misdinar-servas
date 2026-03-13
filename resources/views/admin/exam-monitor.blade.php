@@ -19,17 +19,23 @@
                     Siswa
                     <span id="student-count" class="ml-2 px-2.5 py-0.5 text-sm bg-indigo-100 text-indigo-800 rounded-full">0</span>
                 </h2>
-                <span class="flex items-center gap-2 text-sm text-green-600">
-                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    Live
-                </span>
+                <div class="flex items-center gap-2">
+                    <span id="poll-state-badge" class="inline-flex items-center gap-2 text-sm text-green-600">
+                        <span id="poll-state-dot" class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        <span id="poll-state-text">Live</span>
+                    </span>
+                    <button id="btn-resume-poll" type="button"
+                            class="hidden px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors">
+                        Lanjutkan Polling
+                    </button>
+                </div>
             </div>
 
             {{-- Table Header --}}
             <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 hidden md:grid md:grid-cols-12 gap-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 <div class="col-span-3">Nama Siswa</div>
                 <div class="col-span-2 text-center">Progress</div>
-                <div class="col-span-2 text-center">Skor Saat Ini</div>
+                <div class="col-span-2 text-center">Nilai PG Saat Ini</div>
                 <div class="col-span-2 text-center">Pelanggaran</div>
                 <div class="col-span-2 text-center">Waktu Tersisa</div>
                 <div class="col-span-1 text-center">Aksi</div>
@@ -331,6 +337,8 @@
                    </button>`
                 : '');
 
+        const correctPg = Number(student.correct_pg !== undefined ? student.correct_pg : (student.correct || 0));
+
         // Mobile-friendly compact view
         const mobileView = `
             <div class="md:hidden px-4 py-3 ${level === 'terminated' ? 'bg-gray-50 opacity-75' : ''}">
@@ -347,7 +355,7 @@
                     <div class="text-center">
                         <p class="text-gray-500">Progress</p>
                         <p class="font-semibold">${student.answered}/${totalQuestions}</p>
-                        <p class="text-green-600 text-xs">${student.correct || 0} benar</p>
+                        <p class="text-green-600 text-xs">${correctPg} PG benar</p>
                     </div>
                     <div class="text-center">
                         <p class="text-gray-500">Skor</p>
@@ -382,7 +390,7 @@
                         <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                             <div class="bg-indigo-600 h-1.5 rounded-full transition-all duration-300" style="width: ${progressPercent}%"></div>
                         </div>
-                        <span class="text-xs text-green-600 mt-0.5">${student.correct || 0} benar</span>
+                        <span class="text-xs text-green-600 mt-0.5">${correctPg} PG benar</span>
                     </div>
                 </div>
                 <div class="col-span-2 text-center">
@@ -439,10 +447,91 @@
     const ADMIN_POLL_RUNNING_LARGE_MS = Number(@json(config('exam_runtime.admin.poll_running_large_ms', 9000)));
     const ADMIN_POLL_FINISHED_MS = Number(@json(config('exam_runtime.admin.poll_finished_ms', 30000)));
     const ADMIN_POLL_JITTER_MS = Number(@json(config('exam_runtime.admin.poll_jitter_ms', 1000)));
+    const ADMIN_AUTO_PAUSE_FINISHED = Number(@json(config('exam_runtime.admin.auto_pause_finished_enabled', 0))) === 1;
+    const ADMIN_FINISHED_STABLE_ROUNDS = Math.max(2, Number(@json(config('exam_runtime.admin.finished_stable_rounds', 5))));
+    const ADMIN_FINISHED_HEARTBEAT_MS = Math.max(MIN_POLL_MS, Number(@json(config('exam_runtime.admin.finished_heartbeat_ms', 120000))));
 
     let pollDelayMs = Math.max(MIN_POLL_MS, ADMIN_POLL_LOBBY_MS);
     let pollTimer = null;
     let pollInFlight = false;
+    let finishedStableRounds = 0;
+    let lastFinishedSignature = '';
+    let isFinishedPollPaused = false;
+
+    function setPollingStateUI() {
+        const badge = document.getElementById('poll-state-badge');
+        const dot = document.getElementById('poll-state-dot');
+        const text = document.getElementById('poll-state-text');
+        const resumeBtn = document.getElementById('btn-resume-poll');
+        if (!badge || !dot || !text || !resumeBtn) {
+            return;
+        }
+
+        if (isFinishedPollPaused) {
+            badge.className = 'inline-flex items-center gap-2 text-sm text-amber-700';
+            dot.className = 'w-2 h-2 bg-amber-500 rounded-full';
+            text.textContent = 'Auto-Pause (Finished)';
+            resumeBtn.classList.remove('hidden');
+        } else {
+            badge.className = 'inline-flex items-center gap-2 text-sm text-green-600';
+            dot.className = 'w-2 h-2 bg-green-500 rounded-full animate-pulse';
+            text.textContent = 'Live';
+            resumeBtn.classList.add('hidden');
+        }
+    }
+
+    function buildFinishedSignature(data) {
+        const students = Array.isArray(data.students)
+            ? data.students
+                .map(function(s) {
+                    return [
+                        s.session_id,
+                        s.status,
+                        s.current_score,
+                        s.answered,
+                        s.correct_pg !== undefined ? s.correct_pg : s.correct,
+                        s.violation_count,
+                        s.time_remaining
+                    ].join(':');
+                })
+                .join('|')
+            : '';
+
+        return [data.exam_status, data.student_count, students].join('::');
+    }
+
+    function updateFinishedAutoPauseState(data) {
+        if (!ADMIN_AUTO_PAUSE_FINISHED) {
+            isFinishedPollPaused = false;
+            finishedStableRounds = 0;
+            lastFinishedSignature = '';
+            setPollingStateUI();
+            return;
+        }
+
+        if (data.exam_status !== 'finished') {
+            isFinishedPollPaused = false;
+            finishedStableRounds = 0;
+            lastFinishedSignature = '';
+            setPollingStateUI();
+            return;
+        }
+
+        const signature = buildFinishedSignature(data);
+        if (signature === lastFinishedSignature) {
+            finishedStableRounds += 1;
+        } else {
+            lastFinishedSignature = signature;
+            finishedStableRounds = 1;
+            isFinishedPollPaused = false;
+        }
+
+        if (finishedStableRounds >= ADMIN_FINISHED_STABLE_ROUNDS) {
+            isFinishedPollPaused = true;
+        }
+
+        setPollingStateUI();
+    }
 
     function renderEmptyStateHtml() {
         return `
@@ -557,6 +646,8 @@
             } else {
                 listEl.innerHTML = renderEmptyStateHtml();
             }
+
+            updateFinishedAutoPauseState(data);
         } catch (e) {
             console.error('Poll error:', e);
         } finally {
@@ -569,8 +660,9 @@
             clearTimeout(pollTimer);
         }
 
+        const baseDelay = isFinishedPollPaused ? ADMIN_FINISHED_HEARTBEAT_MS : pollDelayMs;
         // Jitter avoids synchronized bursts after network hiccups.
-        const jitter = Math.floor(Math.random() * Math.max(0, ADMIN_POLL_JITTER_MS));
+        const jitter = Math.floor(Math.random() * Math.max(0, isFinishedPollPaused ? 1000 : ADMIN_POLL_JITTER_MS));
         pollTimer = setTimeout(function() {
             if (!document.hidden) {
                 pollLobby().finally(scheduleNextPoll);
@@ -578,13 +670,27 @@
             }
 
             scheduleNextPoll();
-        }, pollDelayMs + jitter);
+        }, baseDelay + jitter);
     }
 
+    const resumeBtn = document.getElementById('btn-resume-poll');
+    if (resumeBtn) {
+        resumeBtn.addEventListener('click', function() {
+            isFinishedPollPaused = false;
+            finishedStableRounds = 0;
+            lastFinishedSignature = '';
+            setPollingStateUI();
+            pollLobby();
+        });
+    }
+
+    setPollingStateUI();
     pollLobby().finally(scheduleNextPoll);
 
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden) {
+            isFinishedPollPaused = false;
+            setPollingStateUI();
             pollLobby();
         }
     });

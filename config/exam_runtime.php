@@ -14,6 +14,9 @@ $adminRunningMediumDefault = $isCrowded ? 8000 : 7000;
 $adminRunningLargeDefault = $isCrowded ? 10000 : 9000;
 $adminFinishedDefault = $isCrowded ? 30000 : 20000;
 $adminJitterDefault = $isCrowded ? 1500 : 1000;
+$adminAutoPauseFinishedDefault = $isCrowded ? 1 : 0;
+$adminFinishedStableRoundsDefault = 5;
+$adminFinishedHeartbeatDefault = $isCrowded ? 120000 : 90000;
 
 return [
     'profile' => $profile,
@@ -40,5 +43,8 @@ return [
         'poll_running_large_ms' => max($minPollMs, (int) env('EXAM_ADMIN_POLL_RUNNING_LARGE_MS', $adminRunningLargeDefault)),
         'poll_finished_ms' => max($minPollMs, (int) env('EXAM_ADMIN_POLL_FINISHED_MS', $adminFinishedDefault)),
         'poll_jitter_ms' => (int) env('EXAM_ADMIN_POLL_JITTER_MS', $adminJitterDefault),
+        'auto_pause_finished_enabled' => (int) env('EXAM_ADMIN_AUTO_PAUSE_FINISHED', $adminAutoPauseFinishedDefault),
+        'finished_stable_rounds' => max(2, (int) env('EXAM_ADMIN_FINISHED_STABLE_ROUNDS', $adminFinishedStableRoundsDefault)),
+        'finished_heartbeat_ms' => max($minPollMs, (int) env('EXAM_ADMIN_FINISHED_HEARTBEAT_MS', $adminFinishedHeartbeatDefault)),
     ],
 ];

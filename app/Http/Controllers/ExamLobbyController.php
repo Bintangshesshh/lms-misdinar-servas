@@ -502,7 +502,8 @@ class ExamLobbyController extends Controller
             // Eager load questions to avoid N+1 query
             $questions = $this->getExamQuestionsById($exam);
             
-            $totalPoints = $questions->sum('points') ?: $questions->count();
+            $scoredQuestions = $questions->filter(fn($q) => $q->isMultipleChoice());
+            $totalPoints = $scoredQuestions->sum('points') ?: $scoredQuestions->count();
             $earnedPoints = 0;
 
             // Recompute correctness against CURRENT answer key to avoid stale is_correct values.
@@ -567,9 +568,8 @@ class ExamLobbyController extends Controller
             ->get(['question_id', 'selected_answer', 'answer_text'])
             ->keyBy('question_id');
 
-        $correctAnswers = 0;
-        $totalScoredQuestions = $questions->filter(fn($q) => $q->isMultipleChoice())->count();
-        $totalPoints = $questions->sum('points') ?: $questions->count();
+        $scoredQuestions = $questions->filter(fn($q) => $q->isMultipleChoice());
+        $totalPoints = $scoredQuestions->sum('points') ?: $scoredQuestions->count();
         $earnedPoints = 0;
 
         foreach ($questions as $question) {
@@ -585,7 +585,6 @@ class ExamLobbyController extends Controller
             $selected = strtolower(trim((string) $answer->selected_answer));
             $correct = strtolower(trim((string) $question->correct_answer));
             if ($selected !== '' && $selected === $correct) {
-                $correctAnswers++;
                 $earnedPoints += ($question->points ?: 1);
             }
         }
@@ -599,7 +598,7 @@ class ExamLobbyController extends Controller
             $session->save();
         }
 
-        return view('student.exam-result', compact('exam', 'session', 'questions', 'answers', 'correctAnswers', 'totalScoredQuestions'));
+        return view('student.exam-result', compact('exam', 'session', 'questions', 'answers'));
     }
 
     /**

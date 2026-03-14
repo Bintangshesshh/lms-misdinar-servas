@@ -650,16 +650,35 @@ class ExamLobbyController extends Controller
         if ($user) {
             $session = ExamSession::where('exam_id', $exam->id)
                 ->where('user_id', $user->id)
-                ->select('id', 'status', 'joined_at', 'score_integrity', 'violation_count')
+                ->select('id', 'status', 'joined_at', 'start_time', 'score_integrity', 'violation_count')
                 ->first();
             if ($session) {
-                if ($session->status === 'ongoing' && !$session->joined_at) {
-                    ExamSession::where('id', $session->id)->update(['joined_at' => now()]);
-                    Cache::forget("exam.{$exam->id}.lobby_status");
+                if ($session->status === 'ongoing' && (!$session->joined_at || !$session->start_time)) {
+                    $updates = [];
+                    if (!$session->joined_at) {
+                        $updates['joined_at'] = now();
+                    }
+                    if (!$session->start_time) {
+                        $updates['start_time'] = now();
+                    }
+
+                    if (!empty($updates)) {
+                        ExamSession::where('id', $session->id)->update($updates);
+                        Cache::forget("exam.{$exam->id}.lobby_status");
+                        if (isset($updates['joined_at'])) {
+                            $session->joined_at = $updates['joined_at'];
+                        }
+                        if (isset($updates['start_time'])) {
+                            $session->start_time = $updates['start_time'];
+                        }
+                    }
                 }
 
                 if ($session->status === 'ongoing') {
-                    $this->markSessionAlive((int) $exam->id, (int) $session->id);
+                    // Heartbeat write is only needed for legacy rows without timestamps.
+                    if (!$session->joined_at && !$session->start_time) {
+                        $this->markSessionAlive((int) $exam->id, (int) $session->id);
+                    }
                 } else {
                     $this->clearSessionHeartbeat((int) $exam->id, (int) $session->id);
                 }

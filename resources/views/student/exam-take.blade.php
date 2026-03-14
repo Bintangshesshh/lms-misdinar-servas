@@ -417,6 +417,9 @@
     var SYNC_MIN_INTERVAL_MS = Number(@json(config('exam_runtime.student.sync_min_interval_ms', 2500)));
     var SYNC_RETRY_INTERVAL_MS = Number(@json(config('exam_runtime.student.sync_retry_interval_ms', 6000)));
     var SYNC_PERIODIC_INTERVAL_MS = Number(@json(config('exam_runtime.student.sync_periodic_interval_ms', 20000)));
+    var SYNC_TARGET_BATCH_SIZE = Number(@json(config('exam_runtime.student.sync_target_batch_size', 2)));
+    var SYNC_IDLE_DELAY_MS = Number(@json(config('exam_runtime.student.sync_idle_delay_ms', 2200)));
+    var SYNC_MAX_WAIT_MS = Number(@json(config('exam_runtime.student.sync_max_wait_ms', 7000)));
     var POLL_BASE_INTERVAL_MS = Number(@json(config('exam_runtime.student.poll_base_interval_ms', 15000)));
     var POLL_JITTER_MS = Number(@json(config('exam_runtime.student.poll_jitter_ms', 5000)));
     var REINSTATE_POLL_INTERVAL_MS = Number(@json(config('exam_runtime.student.reinstate_poll_interval_ms', 10000)));
@@ -427,6 +430,7 @@
     var isSyncing = false;
     var syncTimer = null;
     var lastSyncAt = 0;
+    var firstPendingAt = 0;
 
     // Create save status indicator element
     var saveStatusEl = document.createElement('div');
@@ -533,12 +537,35 @@
 
     // Add to pending queue and try to sync
     function addToPendingQueue(questionId, option) {
+        if (Object.keys(pendingQueue).length === 0) {
+            firstPendingAt = Date.now();
+        }
         pendingQueue[questionId] = { question_id: Number(questionId), selected_answer: option, timestamp: Date.now() };
         // Also backup to localStorage
         try {
             localStorage.setItem('exam_' + EXAM_ID + '_pending', JSON.stringify(pendingQueue));
         } catch (e) {}
-        scheduleSync(SYNC_DEBOUNCE_MS);
+        scheduleSync(getAdaptiveSyncDelay());
+    }
+
+    function getAdaptiveSyncDelay() {
+        var pendingCount = Object.keys(pendingQueue).length;
+        if (pendingCount <= 0) {
+            return SYNC_DEBOUNCE_MS;
+        }
+
+        if (!firstPendingAt) {
+            firstPendingAt = Date.now();
+        }
+
+        if (pendingCount >= Math.max(1, SYNC_TARGET_BATCH_SIZE)) {
+            // Flush quickly once batch target is reached.
+            return Math.min(SYNC_DEBOUNCE_MS, 900);
+        }
+
+        var elapsed = Date.now() - firstPendingAt;
+        var remaining = Math.max(0, SYNC_MAX_WAIT_MS - elapsed);
+        return Math.min(SYNC_IDLE_DELAY_MS, remaining);
     }
 
     function scheduleSync(delayMs) {
@@ -559,6 +586,9 @@
         // Only remove if the timestamp matches (no newer answer was added)
         if (current && current.timestamp === sentTimestamp) {
             delete pendingQueue[questionId];
+            if (Object.keys(pendingQueue).length === 0) {
+                firstPendingAt = 0;
+            }
             try {
                 if (Object.keys(pendingQueue).length > 0) {
                     localStorage.setItem('exam_' + EXAM_ID + '_pending', JSON.stringify(pendingQueue));
@@ -708,6 +738,18 @@
         var keys = Object.keys(pendingQueue);
         if (keys.length === 0 || isSyncing) return;
 
+        if (!firstPendingAt) {
+            firstPendingAt = Date.now();
+        }
+
+        if (keys.length < Math.max(1, SYNC_TARGET_BATCH_SIZE)) {
+            var waitElapsed = Date.now() - firstPendingAt;
+            if (waitElapsed < SYNC_MAX_WAIT_MS) {
+                scheduleSync(Math.max(300, getAdaptiveSyncDelay()));
+                return;
+            }
+        }
+
         if (!navigator.onLine) {
             showSaveStatus('queued');
             showConnStatus(false);
@@ -728,8 +770,9 @@
             isSyncing = false;
             if (Object.keys(pendingQueue).length > 0) {
                 showSaveStatus('error');
-                scheduleSync(SYNC_RETRY_INTERVAL_MS);
+                scheduleSync(Math.max(1200, Math.min(SYNC_RETRY_INTERVAL_MS, getAdaptiveSyncDelay())));
             } else {
+                firstPendingAt = 0;
                 showSaveStatus('synced');
                 showConnStatus(true);
             }
@@ -986,7 +1029,10 @@
         try {
             localStorage.setItem('exam_' + EXAM_ID + '_pending', JSON.stringify(pendingQueue));
         } catch (e) {}
-        scheduleSync(SYNC_DEBOUNCE_MS);
+        if (Object.keys(pendingQueue).length === 1) {
+            firstPendingAt = Date.now();
+        }
+        scheduleSync(getAdaptiveSyncDelay());
     }
 
     // ---- EVENT DELEGATION: Prev/Next buttons ----

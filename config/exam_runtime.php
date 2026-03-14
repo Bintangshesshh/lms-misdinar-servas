@@ -6,6 +6,10 @@ $minPollMs = max(5000, (int) env('EXAM_MIN_POLL_MS', 5000));
 
 $studentPollBaseDefault = $isCrowded ? 18000 : 15000;
 $studentPollJitterDefault = $isCrowded ? 6000 : 5000;
+$studentSyncMinIntervalDefault = $isCrowded ? 3500 : 2500;
+$studentSyncTargetBatchSizeDefault = $isCrowded ? 3 : 2;
+$studentSyncIdleDelayDefault = $isCrowded ? 3200 : 2200;
+$studentSyncMaxWaitDefault = $isCrowded ? 9000 : 7000;
 
 $adminLobbyDefault = $isCrowded ? 6000 : 5000;
 $adminCountdownDefault = $isCrowded ? 6000 : 5000;
@@ -26,9 +30,12 @@ return [
         'save_debounce_mc_ms' => (int) env('EXAM_SAVE_DEBOUNCE_MC_MS', 700),
         'save_debounce_essay_ms' => (int) env('EXAM_SAVE_DEBOUNCE_ESSAY_MS', 3000),
         'sync_debounce_ms' => (int) env('EXAM_SYNC_DEBOUNCE_MS', 1800),
-        'sync_min_interval_ms' => (int) env('EXAM_SYNC_MIN_INTERVAL_MS', 2500),
+        'sync_min_interval_ms' => (int) env('EXAM_SYNC_MIN_INTERVAL_MS', $studentSyncMinIntervalDefault),
         'sync_retry_interval_ms' => (int) env('EXAM_SYNC_RETRY_INTERVAL_MS', 6000),
         'sync_periodic_interval_ms' => (int) env('EXAM_SYNC_PERIODIC_INTERVAL_MS', 20000),
+        'sync_target_batch_size' => max(1, (int) env('EXAM_SYNC_TARGET_BATCH_SIZE', $studentSyncTargetBatchSizeDefault)),
+        'sync_idle_delay_ms' => max(0, (int) env('EXAM_SYNC_IDLE_DELAY_MS', $studentSyncIdleDelayDefault)),
+        'sync_max_wait_ms' => max(0, (int) env('EXAM_SYNC_MAX_WAIT_MS', $studentSyncMaxWaitDefault)),
         'poll_base_interval_ms' => max($minPollMs, (int) env('EXAM_STUDENT_POLL_BASE_MS', $studentPollBaseDefault)),
         'poll_jitter_ms' => (int) env('EXAM_STUDENT_POLL_JITTER_MS', $studentPollJitterDefault),
         'reinstate_poll_interval_ms' => max($minPollMs, (int) env('EXAM_STUDENT_REINSTATE_POLL_MS', 10000)),

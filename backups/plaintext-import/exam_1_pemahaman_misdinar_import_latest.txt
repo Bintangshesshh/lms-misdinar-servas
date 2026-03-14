@@ -1,45 +1,45 @@
 "Ada berapa bagian dalam liturgi?",1,2,3,4,d,1
-"Siapa nama yang membaptis 18 orang pada 6 Oktober 1896 di Kampung Sawah","Romo Clay","Romo Schweitz","Romo War","Romo Willem Jacobus Eijk",b,1
+"Siapa yang membaptis 18 orang pada 6 Oktober 1896 di Kampung Sawah?","Romo Clay","Romo Schweitz","Romo War","Romo Willem Jacobus Eijk",b,1
 "Apa nama lain dari wirug?",Turibulum,Navikula,Crotalus,Monstrans,a,1
-"Apa nama alat liturgi yang digunakan untuk meletakkan hosti besar",Patena,Piala,Sibori,Ampul,a,1
-"Apa bagian liturgi setelah ritus pembuka","Liturgi Pembuka","Liturgi Sabda","Liturgi Ekaristi","Liturgi Penutup",b,1
-"Apa arti dari martyria",Persekutuan,Kesaksian,Pelayanan,Peribadatan,b,1
-"Pada ritus pembuka, apa yang dilakukan setelah tobat?",Kemuliaan,"Doa Pembuka","Tuhan Kasihanilah Kami","Salam Damai",c,1
-"Ada berapa alat yang digunakan saat perarakan dimulai",1,3,2,4,b,1
-"Kain yang digunakan untuk membersihkan piala disebut",Purifikatorium,Crotalus,Corporale,Patena,a,1
+"Apa nama alat liturgi yang digunakan untuk meletakkan hosti besar?",Patena,Piala,Sibori,Ampul,a,1
+"Apa bagian liturgi setelah ritus pembuka?","Liturgi Pembuka","Liturgi Sabda","Liturgi Ekaristi","Liturgi Penutup",b,1
+"Apa arti dari martyria?",Persekutuan,Kesaksian,Pelayanan,Peribadatan,b,1
+"Pada ritus pembuka, apa yang dilakukan setelah tobat?","Kemuliaan","Doa Pembuka","Tuhan Kasihanilah Kami","Salam Damai",c,1
+"Ada berapa alat yang digunakan saat perarakan pada Misa Minggu biasa?",1,3,2,4,b,1
+"Kain yang digunakan untuk membersihkan piala disebut...",Purifikatorium,Crotalus,Corporale,Patena,a,1
 "Apa nama wadah untuk menaruh dupa?",Turibulum,Hisop,Ampul,Navikula,d,1
 "Berapa jumlah tahun liturgi dalam gereja Katolik?",1,2,3,4,c,1
-"Ada berapa bagian dalam tugas gereja ?",1,2,4,5,d,1
-"Pada Liturgi Ekaristi, apa yang dilakukan pada setelah Anak Domba Allah",Komuni,"Bapa Kami","Salam Damai","Doa Syukur Agung",a,1
-"Pada tahun apa Injil Markus digunakan",A,B,C,D,b,1
-"Sakramen pertama yang diterima umat Kristiani adalah…","Sakramen Imamat","Sakramen Ekaristi","Sakramen Baptis","Sakramen Krisma",c,1
-"Berapa jumlah sakramen dalam gereja Katolik",5,6,7,8,c,1
-"Sakramen Tobat adalah sakramen yang memberikan..","Pengampunan Dosa","Penguatan Iman","Perjanjian Pernikahan","Pengurapan Sakramental",a,1
-"Petugas yang membacakan Kitab Suci pada saat Misa",Prodiakon,Pemazmur,Lektor/Lektris,Misdinar,c,1
-"Sakramen yang mentahbiskan seseorang menjadi imam adalah…",Ekaristi,Krisma,Tobat,Imamat,d,1
-"Sakramen Krisma dapat disebut juga","Sakramen Penguatan","Sakramen Pentahbisan","Sakramen Rekonsiliasi","Sakramen Ekaristi",a,1
-"Kapan peringatan Santo pelindung Misdinar?","15 Agustus","12 Agustus","23 November","4 Desember",a,1
-"Apa tugas utama misdinar saat misa berlangsung","Membacakan injil","Membantu Imam dialtar","Mengatur Tempat duduk umat","Menyanyikan mazmur",b,1
-"Sakramen yang diberikan untuk menganugerahkan kekuatan hidup iman dan pengampunan dosa kepada orang sakit adalah..","Sakramen Imamat","Sakramen Tobat","Sakramen Pengurapan Orang Sakit","Sakramen Ekaristi",c,1
+"Ada berapa Tugas Gereja dalam tradisi Katolik?",1,2,4,5,d,1
+"Urutan pada Liturgi Ekaristi setelah Anak Domba Allah adalah...",Komuni,"Bapa Kami","Salam Damai","Doa Syukur Agung",a,1
+"Pada tahun apa Injil Markus digunakan?",A,B,C,D,b,1
+"Sakramen pertama yang diterima umat Kristiani adalah...","Sakramen Imamat","Sakramen Ekaristi","Sakramen Baptis","Sakramen Krisma",c,1
+"Berapa jumlah sakramen dalam Gereja Katolik?",5,6,7,8,c,1
+"Sakramen Tobat adalah sakramen yang memberikan...","Pengampunan Dosa","Penguatan Iman","Perjanjian Pernikahan","Pengurapan Sakramental",a,1
+"Petugas yang membacakan Kitab Suci pada saat Misa disebut...",Prodiakon,Pemazmur,Lektor/Lektris,Misdinar,c,1
+"Sakramen yang mentahbiskan seseorang menjadi imam adalah...",Ekaristi,Krisma,Tobat,Imamat,d,1
+"Sakramen Krisma dapat disebut juga dengan?","Sakramen Penguatan","Sakramen Pentahbisan","Sakramen Rekonsiliasi","Sakramen Ekaristi",a,1
+"Kapan peringatan Santo pelindung Misdinar?","15 Agustus","12 Agustus","23 Agustus","4 Agustus",a,1
+"Apa tugas utama misdinar saat Misa berlangsung?","Membacakan injil","Membantu Imam dialtar","Mengatur Tempat duduk umat","Menyanyikan mazmur",b,1
+"Sakramen yang diberikan untuk menganugerahkan kekuatan hidup iman dan pengampunan dosa kepada orang sakit adalah...","Sakramen Imamat","Sakramen Tobat","Sakramen Pengurapan Orang Sakit","Sakramen Ekaristi",c,1
 "Apa warna liturgi yang digunakan pada masa prapaskah?",Kuning,Ungu,Hijau,Merah,b,1
-"Siapa nama santo pelindung misdinar","Santo Servatius","Santo Tarsisius","Santo Mikael","Santo Felix",b,1
+"Siapa nama santo pelindung misdinar?","Santo Servatius","Santo Tarsisius","Santo Mikael","Santo Felix",b,1
 "Apa makna dari warna putih dalam liturgi?",Kesucian,Keberanian,Pertobatan,Penantian,a,1
-"Ada berapa warna liturgi",5,6,7,8,b,1
-"Apa warna liturgi yang digunakan pada hari raya Pentakosta?",Hitam,Hijau,Merah,Kuning,c,1
-"Dimana santo Tarsisius dimakamkan","Katakombe San Calllisto","Katakombe Domitila","Katakombe Santo Sebastian","Katakombe Priscilla",b,1
-"Tali pengikat alba disebut dengan…",singel,stola,amik,mozeta,a,1
-"Apa arti Gereja dengan huruf "" G "" besar menunjuk pada","Bangunan tempat ibadah","Umat beriman sebagai persekutuan rohani","Tempat doa pribadi","Gedung misa harian",b,1
-"Gereja dengan huruf ""g"" kecil berarti","Tubuh Mistik Kritus","Persekutuan umat","Bangunan fisik tempat ibadah",Komunitas,c,1
-"Warna liturgi yang hanya digunakan dua kali dalam setahun, tepatnya pada Minggu Gaudete ( adven III) dan Minggu Laetare ( Prapaskah IV) adalah",Merah,Ungu,"Merah Muda",Kuning,c,1
-"Martir yang wafat karena mempertahankan iman disebut","Martir Merah","Martir Putih","Martir Hijau","Martir Rohani",a,1
-"Kain yang digunakan sebagai alas dari sibori dan piala adalah",Corporale,Purifikatorium,Lavabo,Piksis,a,1
-"Sebelum menjadi paroki Kampung Sawah, Gereja Santo Servatius bernama..","Santo Antonius Padua","Santo Fransiskus Asisi","Santo Mikael","Santo Stanislaus Kostka",a,1
-"Alba berasal dari bahasa latin yang berarti",Kasih,Putih,Cinta,Merah,b,1
-"Alba berasal dari bahasa latin yang artinya",Kasih,Cahaya,Putih,Cinta,c,1
-"Homili termasuk dalam","Liturgi Pembuka","Liturgi Sabda","Liturgi Ekaristi","Liturgi Penutup",b,1
-"Tugas gereja yang melayani kasih pada kepada sesama adalah",Koinonia,Kerygma,Liturgia,Diakonia,d,1
-ESSAY,"Dalam Perayaan Ekaristis, seorang romo mengenakan pakaian liturgi secara berurutan sesuai dengan ketentuan gereja. Tuliskan urutan pakaian romo yang dikenakan dari dalam keluar saat memimpin misa",1
-ESSAY,"Dalam gereja Katolik terdapat tujuh sakramen sebagai tanda rahmat Allah bagi umat-Nya. Tuliskan tujuh sakramen secara urut yang ada di dalam Gereja",10
-ESSAY,"Jelaskan apa saja tiga janji suci (kaul) yang diucapkan oleh para imam sebagai tanda pengabdian mereka kepada Tuhan",1
-ESSAY,"Jika kamu sedang membantu di sakristi, bagaimana urutan menyusun piala yang benar, mulai dari bagian yang paling bawah",1
-ESSAY,"Gereja memiliki lima tugas utama dalam kehidupan umat beriman. Tuliskan lima tugas Gereja tersebut!",1
+"Ada berapa warna liturgi?",5,6,7,8,b,1
+"Apa warna liturgi yang digunakan pada Hari Raya Pentakosta?",Hitam,Hijau,Merah,Kuning,c,1
+"Dimana Santo Tarsisius dimakamkan?","Katakombe San Callisto","Katakombe Domitila","Katakombe Santo Sebastian","Katakombe Priscilla",b,1
+"Tali pengikat alba disebut dengan...",singel,stola,amik,mozeta,a,1
+"Huruf "G" besar pada arti Gereja menunjuk pada...","Bangunan tempat ibadah","Umat beriman sebagai persekutuan rohani","Tempat doa pribadi","Gedung misa harian",b,1
+"Gereja dengan huruf ""g"" kecil berarti...","Tubuh Mistik Kritus","Persekutuan umat","Bangunan fisik tempat ibadah",Komunitas,c,1
+"Warna liturgi yang hanya digunakan dua kali dalam setahun, tepatnya pada Minggu Gaudete (adven III) dan Minggu Laetare (Prapaskah IV) adalah...",Merah,Ungu,"Merah Muda",Kuning,c,1
+"Martir yang wafat karena mempertahankan iman disebut...","Martir Merah","Martir Putih","Martir Hijau","Martir Rohani",a,1
+"Kain yang digunakan sebagai alas dari sibori dan piala adalah...",Corporale,Purifikatorium,Lavabo,Piksis,a,1
+"Sebelum menjadi paroki Kampung Sawah, Gereja Santo Servatius bernama...","Santo Antonius Padua","Santo Fransiskus Asisi","Santo Mikael","Santo Stanislaus Kostka",a,1
+"Alba berasal dari bahasa latin yang artinya adalah...",Kasih,Putih,Cinta,Merah,b,1
+"Pelayan liturgi dalam gereja Katolik yang berperan penting dalam perayaan ekaristi. Tugas utamanya meliputi menyiapkan altar, membawa bahan persembahan seperti roti dan anggur, membantu imam atau diakon selama liturgi, serta melayani komuni dan membersihkan bejana kudus setelah misa...",Akolit,Romo,Misdinar,Prodiakon,a,1
+"Homili termasuk ke dalam bagian dari...","Liturgi Pembuka","Liturgi Sabda","Liturgi Ekaristi","Liturgi Penutup",b,1
+"Tugas gereja yang melayani kasih pada kepada sesama adalah...",Koinonia,Kerygma,Liturgia,Diakonia,d,1
+ESSAY,"Dalam Perayaan Ekaristis, seorang Romo mengenakan pakaian liturgi secara berurutan sesuai dengan ketentuan Gereja. Tuliskan urutan pakaian Romo yang dikenakan dari dalam keluar saat memimpin misa!",6
+ESSAY,"Dalam Gereja Katolik terdapat tujuh Sakramen sebagai tanda rahmat Allah bagi umat-Nya. Tuliskan tujuh Sakramen secara urut yang ada di dalam Gereja!",10
+ESSAY,"Sebutkan apa saja tiga janji suci (kaul) yang diucapkan oleh para imam sebagai tanda pengabdian mereka kepada Tuhan!",3
+ESSAY,"Jika kamu sedang membantu di sakristi, bagaimana urutan menyusun piala yang benar? (dimulai dari bagian yang paling bawah)",9
+ESSAY,"Gereja memiliki lima tugas utama dalam kehidupan umat beriman. Tuliskan dan jelaskan lima tugas Gereja tersebut!",15
